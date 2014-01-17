@@ -1,0 +1,6 @@
+*~
+/nbproject/*
+/.idea/*
+.kdev4
+*.kdev4
+/server*
