@@ -46,6 +46,8 @@ or
 apt-get install openssh-server
 ```
 
+### Conatct ###
+If you have questions or proposition please contact with abr@scalix.com
 
 
   [1]: http://en.wikipedia.org/wiki/Fully_qualified_domain_name%20Fully%20qualified%20domain%20name%28FQDN%29
