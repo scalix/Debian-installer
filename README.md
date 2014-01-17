@@ -46,7 +46,7 @@ or
 apt-get install openssh-server
 ```
 
-### Conatct ###
+### Contact ###
 If you have questions or proposition please contact with abr@scalix.com
 
 
