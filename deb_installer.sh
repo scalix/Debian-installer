@@ -69,10 +69,6 @@ if [ -n "$1" ]; then
     esac
 fi
 
-if [ -n "$1" -a "$1" == "--purge" ]; then
-
-fi
-
 if [ -d "$PWD/server" ]; then
   #for testing purpose
   PACKAGES_DIR="$PWD/server"
