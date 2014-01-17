@@ -10,10 +10,12 @@ Scalix Installer for Debian 7( Wheezy), Ubuntu 12.04 and 13.04
 4. valid FQDN hostname. [Fully qualified domain name(FQDN)][1]
 5. Oracle Java runtime environment(minimal version 1.5, maximum version 1.7.X). JRE from IBM is not supported. Scalix does not support openJDK on production servers, however it is possible to use openJDK on low-load non-production installations.  Please visit wiki page [Working with JRE][2]  for more details about Java/JDK and Scalix.
 
-### Installer arguments ###
-1. --purge  - removes scalix from you system and deletes all data which were created.
+For more information please visit [Manual Installation][3].
 
-2. --update - will download latest deb packages for installation and proceed them  to install
+### Installer arguments ###
+1. --purge - removes Scalix from your system and deletes all associated data.
+
+2. --update - downloads latest Scalix deb packages for installs them.
 
 
 ### Usage ###
@@ -52,3 +54,4 @@ If you have questions or proposition please contact with abr@scalix.com
 
   [1]: http://en.wikipedia.org/wiki/Fully_qualified_domain_name%20Fully%20qualified%20domain%20name%28FQDN%29
   [2]: http://scalix.com/wiki/index.php?title=HowTos/Working_with_JRE
+  [3]: http://www.scalix.com/wiki/index.php?title=Manual_Installation
