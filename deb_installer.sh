@@ -53,7 +53,7 @@ function remove_scalix() {
 
 function download_packages() {
     if [ -d "$PWD/server" ]; then
-        mv "$PWD/server" "$PWD/server$(date +%Y%m%d)"
+        mv "$PWD/server" "$PWD/server_backup$(date +%Y%m%d)"
     fi
     mkdir -p "$PWD/server"
     cd "$PWD/server"
