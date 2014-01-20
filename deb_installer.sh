@@ -441,7 +441,7 @@ if [ -f "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" ]; then
     if [ -d "$apache2_base/conf-enabled" ]; then
         apache_conf_dir="$apache2_base/conf-enabled"
     fi
-    ln -s "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" "$apache_conf_dir/$SX_WEB_CLIENT_CONFf"
+    ln -s "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" "$apache_conf_dir/$SX_WEB_CLIENT_CONF"
 fi
 
 service scalix-tomcat restart
