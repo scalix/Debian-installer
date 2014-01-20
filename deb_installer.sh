@@ -368,7 +368,7 @@ if [ -d "/opt/scalix-postgres/bin" ]; then
 
   sxpsql-setpwd $dbpwd
   echo $dbpwd > "$base/caa/scalix.res/config/psdata"
-  sxpsql-whitelist 127.0.0.1 $EXTERNAL_IP
+  sxpsql-whitelist $EXTERNAL_IP
 fi
 
 echo "Setting up settings for web applications"
