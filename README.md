@@ -52,6 +52,6 @@ apt-get install openssh-server
 If you have questions or proposition please contact with abr@scalix.com
 
 
-  [1]: http://en.wikipedia.org/wiki/Fully_qualified_domain_name%20Fully%20qualified%20domain%20name%28FQDN%29
+  [1]: http://en.wikipedia.org/wiki/Fully_qualified_domain_name
   [2]: http://scalix.com/wiki/index.php?title=HowTos/Working_with_JRE
   [3]: http://www.scalix.com/wiki/index.php?title=Manual_Installation
