@@ -29,16 +29,55 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
+DEPENDENCIES=""
+SCALIX_SERVER_PACKAGES_EXISTS=""
+SCALIX_TOMCAT_PACKAGES_EXISTS=""
+SERVER_ARCH="deb7"
+DPKG_ARGS=""
+PACKAGES_DIR="$PWD"
+EXTERNAL_IP=""
+SX_WEB_CLIENT_CONF_PATH="/opt/scalix/global/httpd"
+SX_WEB_CLIENT_CONF="scalix-web-client.conf"
+
+KERNEL_VERSION=$(uname -v)
+LDOMAIN=$(hostname -d)
+HOST=$(hostname)
+FQDN=$(hostname -f)
+SHORT=${HOST:0:1}${HOST: -1:1}
+MNODE=$(uname -n)
+x86_64=false
+FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.)+(?:[a-zA-Z]{2,})$)'
+
+APT_CMD=$(type -P aptitude)
+if [ -z "$APT_CMD" ]; then
+  APT_CMD=$(type -P apt-get)
+fi
+
+if [ "$(uname -m)" == "x86_64" ]; then
+    x86_64=true
+fi
+
+
+IS_UBUNTU12=false
+if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
+  ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
+  if [ $ubuntu_version -lt 13 ]; then
+      IS_UBUNTU12=true
+  fi
+fi
+
+awk_print='{ print $2; }'
+if [[ $x86_64 ]] && [[ $IS_UBUNTU12 == false ]] ; then
+    awk_print='{ print $2":"$4; }'
+fi
+INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk "$awk_print")
+
 function remove_scalix() {
-    entries=$(dpkg --list | grep scalix | awk '{ print $2; }')
-    if [ ! $entries ]; then
+
+    if [ -z "$INSTALLED_PACKAGES" ]; then
         echo "There are no installed packages to remove."
     else
-        for entry in $(dpkg --list | grep scalix | awk '{ print $2; }')
-        do
-            echo "Removing package $entry"
-            dpkg --purge $entry
-        done
+        aptitude purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
         rm -rf /var/opt
         rm -rf /etc/opt
@@ -70,27 +109,10 @@ if [ -n "$1" ]; then
 fi
 
 if [ -d "$PWD/server" ]; then
-  #for testing purpose
   PACKAGES_DIR="$PWD/server"
-else
-  PACKAGES_DIR="$PWD"
 fi
 
-DEPENDENCIES=""
-SCALIX_SERVER_PACKAGES_EXISTS="0"
-SCALIX_TOMCAT_PACKAGES_EXISTS="0"
-SERVER_ARCH="deb7"
-DPKG_ARGS=""
-
-LDOMAIN=$(hostname -d)
-HOST=$(hostname)
-FQDN=$(hostname -f)
-SHORT=${HOST:0:1}${HOST: -1:1}
-MNODE=$(uname -n)
-
-fqdn_pattern='(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.)+(?:[a-zA-Z]{2,})$)'
-
-if [ -z "$(echo $FQDN | grep -P $fqdn_pattern)" ]; then
+if [ -z "$(echo $FQDN | grep -P $FQDN_PATTERN)" ]; then
     echo "Invalid fully-qualified hostname - '$FQDN' (your current FQDN hostname)"
     echo "The \"hostname\" command should return the short hostname, while the
 \"hostname --fqdn\" command should return the fully-qualified hostname"
@@ -98,19 +120,9 @@ if [ -z "$(echo $FQDN | grep -P $fqdn_pattern)" ]; then
     exit 2
 fi
 
-EXTERNAL_IP=""
-
-APT_CMD=$(type -P aptitude)
-if [ -z "$APT_CMD" ]; then
-  APT_CMD=$(type -P apt-get)
-fi
-
-kernel_verion=$(uname -v)
-if [[ $kernel_verion = *Ubuntu* ]]; then
-  ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
-  if [ $ubuntu_version -lt 13 ]; then
+if $IS_UBUNTU12; then
     SERVER_ARCH="ubuntu12"
-    if [ "$(uname -m)" == "x86_64" ]; then
+    if $x86_64; then
         echo
         echo " At this moment Ubuntu 12.04 x64(amd64) has issues with unresolved
  dependencies in scalix-server package. To install scalix-server package we will
@@ -128,8 +140,8 @@ if [[ $kernel_verion = *Ubuntu* ]]; then
             esac
         done
     fi
-  fi
 fi
+
 
 # get real path
 function realpath() {
@@ -142,7 +154,7 @@ function realpath() {
 function safety_exec() {
     echo "executing command $1"
     eval $1
-    error=$?
+    local error=$?
     if test $error -gt 0
     then
         echo "Error while executing \"$1\""
@@ -150,11 +162,12 @@ function safety_exec() {
     fi
 }
 
+
 # Debian 7 and Ubunut 13.04
 function dpkg_cmd_add_i386_arch() {
-  arch_file="/var/lib/dpkg/arch"
+  local arch_file="/var/lib/dpkg/arch"
   if [ -f "$arch_file" ]; then
-    arch=$(grep i386 $arch_file)
+    local arch=$(grep i386 $arch_file)
     if [ -z "$arch" ]; then
       dpkg --add-architecture i386
     fi
@@ -165,9 +178,9 @@ function dpkg_cmd_add_i386_arch() {
 
 # Ubuntu 12.04
 function manual_add_i386_arch() {
-  arch_file='/etc/dpkg/dpkg.cfg.d/multiarch' #architectures
+  local arch_file='/etc/dpkg/dpkg.cfg.d/multiarch' #architectures
   if [ -f "$arch_file" ]; then
-    arch=$(grep i386 $arch_file)
+    local arch=$(grep i386 $arch_file)
     if [ -z "$arch" ]; then
       echo "foreign-architecture i386" > $arch_file
     fi
@@ -178,13 +191,11 @@ function manual_add_i386_arch() {
 
 # add i386 architecture to system to be able to install i386 packages
 function add_i386_arch() {
-  kernel_verion=$(uname -v)
-  if [[ $kernel_verion = *Debian* ]]; then
+  if [[ $KERNEL_VERSION = *Debian* ]]; then
     dpkg_cmd_add_i386_arch
-  elif [[ $kernel_verion = *Ubuntu* ]]; then
-    ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
-    if [ $ubuntu_version -lt 13 ]; then
-      if [ "$(uname -m)" == "x86_64" ]; then
+  elif [[ $KERNEL_VERSION = *Ubuntu* ]]; then
+    if $IS_UBUNTU12; then
+      if $x86_64; then
           manual_add_i386_arch
       fi
     else
@@ -196,7 +207,7 @@ function add_i386_arch() {
 
 # check if package exists in folder
 function package_exists () {
-    count=$(find "$PACKAGES_DIR" -name "scalix-$1*[$SERVER_ARCH|all].deb"  | grep -v ^l | wc -l)
+    local count=$(find "$PACKAGES_DIR" -name "scalix-$1*[$SERVER_ARCH|all].deb"  | grep -v ^l | wc -l)
     echo $count
 }
 
@@ -242,8 +253,8 @@ function check_package_dir() {
     read -p "Please specify another folder with deb packages: " dir
     check_package_dir $dir
   fi
-  dir=$(realpath $1)
-  pkgs_count=$(find $1 -maxdepth 1 -type f -name 'scalix*\.deb'  | grep -v ^l | wc -l)
+  local dir=$(realpath $1)
+  local pkgs_count=$(find $1 -maxdepth 1 -type f -name 'scalix*\.deb'  | grep -v ^l | wc -l)
   if [ "$pkgs_count" = "0" ]; then
     echo "Folder $1 does not contain deb packages"
     read -p "Please specify another folder with deb packages: " dir
@@ -255,7 +266,7 @@ function check_package_dir() {
 # gether dependencies which need to install
 function collect_dependencies() {
     SCALIX_SERVER_PACKAGES_EXISTS=$(package_exists "server")
-    if [ "$SCALIX_SERVER_PACKAGES_EXISTS" != "0" ]; then
+    if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
       DEPENDENCIES="libc6:i386 libgssapi3-heimdal:i386 libgcc1:i386 gawk sed util-linux util-linux-locales openssl
       procps w3m libkrb5-3:i386 libfreetype6:i386 libsasl2-2:i386 libsasl2-modules:i386 libglib2.0-0:i386
       libxml2:i386 sendmail sendmail-cf libstdc++6:i386 libmilter1.0.1:i386 ed
@@ -263,7 +274,7 @@ function collect_dependencies() {
     fi
 
     SCALIX_TOMCAT_PACKAGES_EXISTS=$(package_exists "tomcat")
-    if [ "$SCALIX_TOMCAT_PACKAGES_EXISTS" != "0" ]; then
+    if [ -n "$SCALIX_TOMCAT_PACKAGES_EXISTS" ]; then
       if [ -z "$(type -P java)" ]; then
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
@@ -274,7 +285,7 @@ function collect_dependencies() {
 
     fi
 
-    result=$(package_exists "postgres")
+    local result=$(package_exists "postgres")
     if [ "$result" != "0" -a -z "$(type -P psql)" ]; then
       DEPENDENCIES="$DEPENDENCIES postgresql"
     fi
@@ -297,7 +308,6 @@ echo "Force add i386 architecture if needed"
 add_i386_arch
 
 if [ -n "$DEPENDENCIES" ]; then
-
   echo "Before installing Scalix you must install following dependencies"
   echo
   echo $DEPENDENCIES
@@ -311,16 +321,16 @@ if [ -n "$DEPENDENCIES" ]; then
       exit $error
   fi
   echo "We need to insure that all dependencies are installed"
+  echo
   $APT_CMD install $DEPENDENCIES
 fi
 
-if [ "$SCALIX_SERVER_PACKAGES_EXISTS" != "0" ]; then
+if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
   install "installing libical" "libical" "i386"
   install "libical, chardet and iconv" "chardet|iconv" $SERVER_ARCH
   install "Scalix server core" "server" $SERVER_ARCH $DPKG_ARGS
 
   export PATH=/opt/scalix/bin:$PATH
-
 
   read -s -p "Please enter the admin password for the Scalix admin user (sxadmin)? " admpwd
   echo
@@ -348,7 +358,7 @@ if [ "$SCALIX_SERVER_PACKAGES_EXISTS" != "0" ]; then
 
 fi
 
-if [ "$SCALIX_TOMCAT_PACKAGES_EXISTS" != "0" ]; then
+if [ -n "$SCALIX_TOMCAT_PACKAGES_EXISTS" ]; then
   install "Tomcat Connector" "tomcat-connector" "all"
   install "Scalix Tomcat " "tomcat_" "all"
   install "All available web applications" 'mobile|res|swa|wireless|platform|sac|postgres|sis' "all"
@@ -362,13 +372,12 @@ base="/var/opt/scalix/$SHORT"
 dbpwd=""
 echo "Configuring scalix-postgres"
 if [ -d "/opt/scalix-postgres/bin" ]; then
-  read -s -p "Please enter a password for the db user? " dbpwd
-  echo
-  get_external_ip
-
-  sxpsql-setpwd $dbpwd
-  echo $dbpwd > "$base/caa/scalix.res/config/psdata"
-  sxpsql-whitelist $EXTERNAL_IP
+    read -s -p "Please enter a password for the db user? " dbpwd
+    echo
+    sxpsql-setpwd $dbpwd
+    echo $dbpwd > "$base/caa/scalix.res/config/psdata"
+    get_external_ip
+    sxpsql-whitelist $EXTERNAL_IP
 fi
 
 echo "Setting up settings for web applications"
@@ -428,20 +437,20 @@ done
 echo "Running sxmkindex: redirecting output to /var/log/sxmkindex.log"
 nohup nice -n 10 sxmkindex -r 0 > /var/log/sxmkindex.log 2>&1 &
 
-
 #HACKS
 #remove dot in <VirtualHost debian.:80> should be <VirtualHost debian:80> or debian.com
 sed -ri 's/(\w+)\.:([0-9]*)/\1:\2/' /etc/opt/scalix-tomcat/connector/*/instance-*.conf
 
-SX_WEB_CLIENT_CONF_PATH="/opt/scalix/global/httpd"
-SX_WEB_CLIENT_CONF="scalix-web-client.conf"
+
 if [ -f "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" ]; then
     apache2_base="/etc/apache2/"
     apache_conf_dir="$apache2_base/conf.d"
     if [ -d "$apache2_base/conf-enabled" ]; then
         apache_conf_dir="$apache2_base/conf-enabled"
     fi
-    ln -s "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" "$apache_conf_dir/$SX_WEB_CLIENT_CONF"
+    if [ ! -f "$apache_conf_dir/$SX_WEB_CLIENT_CONF" ]; then
+        ln -s "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" "$apache_conf_dir/$SX_WEB_CLIENT_CONF"
+    fi
 fi
 
 service scalix-tomcat restart
