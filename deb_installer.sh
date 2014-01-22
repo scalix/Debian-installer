@@ -426,7 +426,7 @@ done
 
 
 echo "Running sxmkindex: redirecting output to /var/log/sxmkindex.log"
-nohup nice -n 10 sxmkindex > /var/log/sxmkindex.log 2>&1 &
+nohup nice -n 10 sxmkindex -r 0 > /var/log/sxmkindex.log 2>&1 &
 
 
 #HACKS
