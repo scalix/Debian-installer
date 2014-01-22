@@ -45,7 +45,7 @@ HOST=$(hostname)
 FQDN=$(hostname -f)
 SHORT=${HOST:0:1}${HOST: -1:1}
 MNODE=$(uname -n)
-x86_64=false
+
 FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.)+(?:[a-zA-Z]{2,})$)'
 
 APT_CMD=$(type -P aptitude)
@@ -53,6 +53,7 @@ if [ -z "$APT_CMD" ]; then
   APT_CMD=$(type -P apt-get)
 fi
 
+x86_64=false
 if [ "$(uname -m)" == "x86_64" ]; then
     x86_64=true
 fi
@@ -92,12 +93,20 @@ function remove_scalix() {
 
 function download_packages() {
     if [ -d "$PWD/server" ]; then
-        mv "$PWD/server" "$PWD/server_backup$(date +%Y%m%d)"
+        local server_backup_folder="$PWD/server_backup$(date +%Y%m%d)"
+        if [ -d "$server_backup_folder" ]; then
+            local dircount=1
+            while [ -d "$server_backup_folder-$dircount" ]; do
+                dircount=$(expr $dircount + 1)
+            done
+            server_backup_folder="$server_backup_folder-$dircount"
+        fi
+        mv "$PWD/server" "$server_backup_folder"
     fi
     mkdir -p "$PWD/server"
     cd "$PWD/server"
     wget -i http://downloads.scalix.com/debian/?type=deb
-    cd "$PWD"
+    cd "$PACKAGES_DIR"
 }
 
 if [ -n "$1" ]; then
