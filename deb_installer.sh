@@ -79,7 +79,7 @@ function remove_scalix() {
     else
         aptitude purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
-        rm -rf /var/opt
+        rm -rf /var/opt/scalix
         rm -rf /etc/opt
         rm -rf /opt/scalix
         rm -f /etc/apache2/**/scalix*.conf
