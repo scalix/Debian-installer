@@ -351,7 +351,7 @@ if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
   ommakeom
   sxconfig --set -t general.usrl_cn_rule='G S'
   sxconfig --set -t general.usrl_authid_rule='l@'
-  sxconfig --set -t orniasys.name_part_1='"C" <S>' -t orniasys.domain_part_1="$FQDN" # com
+  sxconfig --set -t orniasys.name_part_1='"C" <S>' -t orniasys.domain_part_1="$LDOMAIN" # com
   omaddmn -m $MNODE
   omrc -n
   omadmidp -a -s 66000 -n 100
@@ -401,7 +401,7 @@ files="$base/webmail/swa.properties \
        $base/res/config/krblogin.conf"
 
 for file in $files; do
-  sed -e "s;%LOCALDOMAIN%;$FQDN;g" \
+  sed -e "s;%LOCALDOMAIN%;$LDOMAIN;g" \
       -e "s;%LOCALHOST%;$FQDN;g" \
       -e "s;swa.platform.url=http://%PLATFORMURL%:8080/api;swa.platform.url=http://$FQDN/api;g" \
       -e "s;swa.platform.enabled=false;swa.platform.enabled=true;g" \
