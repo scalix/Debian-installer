@@ -288,7 +288,7 @@ function collect_dependencies() {
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
 
-      if [ ! -d '/etc/apache2' ]; then
+      if [ "$(dpkg --list | grep apache2 | wc -l)" = "0" ]; then
         DEPENDENCIES="$DEPENDENCIES apache2"
       fi
 
