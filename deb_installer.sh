@@ -331,7 +331,7 @@ if [ -n "$DEPENDENCIES" ]; then
   fi
   echo "We need to insure that all dependencies are installed"
   echo
-  $APT_CMD install $DEPENDENCIES
+  $APT_CMD install "$DEPENDENCIES openssh-server"
 fi
 
 if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
