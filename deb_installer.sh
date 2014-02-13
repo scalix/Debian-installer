@@ -78,7 +78,7 @@ function remove_scalix() {
     if [ -z "$INSTALLED_PACKAGES" ]; then
         echo "There are no installed packages to remove."
     else
-        aptitude purge $INSTALLED_PACKAGES || exit $?
+        $APT_CMD purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
         rm -rf /var/opt/scalix
         rm -rf /etc/opt
