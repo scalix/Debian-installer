@@ -288,7 +288,7 @@ function collect_dependencies() {
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
 
-      if [ "$(dpkg --list | grep apache2 | wc -l)" = "0" ]; then
+      if [ -z "$(dpkg-query -l apache2 | grep ii )" ]; then
         DEPENDENCIES="$DEPENDENCIES apache2"
       fi
 
