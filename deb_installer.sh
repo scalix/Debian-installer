@@ -65,7 +65,7 @@ function remove_scalix() {
     if [ -z "$INSTALLED_PACKAGES" ]; then
         echo "There are no installed packages to remove."
     else
-        aptitude purge $INSTALLED_PACKAGES || exit $?
+        $APT_CMD purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
         rm -rf /var/opt/scalix
         rm -rf /etc/opt
@@ -190,6 +190,23 @@ function valid_ip()
     return $stat
 }
 
+function use_https_for_webapp() {
+    while true; do
+        readp "Do you whant to use secure connection HTTPS instead HTTP for $1 ( yes / no ) ?" yn
+        case $yn in
+            [Yy]* )
+                for i in $(sxtomcat-get-mounted-instances) ; do
+                    sxtomcat-webapps --forcehttps $i $2
+                done
+                break
+            ;;
+            [Nn]* ) break;;
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
+}
+
+
 # ask user for external ip for scalix postgres.
 function get_external_ip() {
   read -p "Please enter the external ip address of your Scalix box? " ip
@@ -244,7 +261,7 @@ function collect_dependencies() {
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
 
-      if [ ! -d '/etc/apache2' ]; then
+      if [ -z "$(dpkg-query -l apache2 | grep ii )" ]; then
         DEPENDENCIES="$DEPENDENCIES apache2"
       fi
 
@@ -399,6 +416,13 @@ for file in $files; do
 
 done
 
+if [ -n $(dpkg-query -l scalix-sac | grep ii ) ]; then
+    use_https_for_webapp "Scalix Administration console", 'sac'
+fi
+
+if [ -n $(dpkg-query -l scalix-sac | grep ii ) ]; then
+    use_https_for_webapp "Scalix Web Access", 'swa'
+fi
 
 echo "Running sxmkindex: redirecting output to /var/log/sxmkindex.log"
 nohup nice -n 10 sxmkindex -r 0 > /var/log/sxmkindex.log 2>&1 &
