@@ -30,8 +30,8 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 DEPENDENCIES=""
-SCALIX_SERVER_PACKAGES_EXISTS=""
-SCALIX_TOMCAT_PACKAGES_EXISTS=""
+SCALIX_SERVER_PACKAGE=""
+SCALIX_TOMCAT_PACKAGE=""
 SERVER_ARCH="deb7"
 DPKG_ARGS=""
 PACKAGES_DIR="$PWD"
@@ -136,8 +136,9 @@ function safety_exec() {
 }
 
 
+# add i386 architecture to system to be able to install i386 packages
 # Debian 7 and Ubunut 13.04
-function dpkg_cmd_add_i386_arch() {
+function dpkg_add_i386_arch() {
   local arch_file="/var/lib/dpkg/arch"
   if [ -f "$arch_file" ]; then
     local arch=$(grep i386 $arch_file)
@@ -147,18 +148,17 @@ function dpkg_cmd_add_i386_arch() {
   else
     dpkg --add-architecture i386
   fi
-}
-
-# add i386 architecture to system to be able to install i386 packages
-function add_i386_arch() {
-  dpkg_cmd_add_i386_arch
   $APT_CMD update
 }
 
 # check if package exists in folder
-function package_exists () {
-    local count=$(find "$PACKAGES_DIR" -name "scalix-$1*[$SERVER_ARCH|all].deb"  | grep -v ^l | wc -l)
-    echo $count
+function find_sx_package () {
+    local skip=''
+    if ! $x86_64; then
+        skip="*x86_64*"
+    fi
+    local count=$(find $path ! -name "$skip" -name "scalix-$1*[$SERVER_ARCH|all|$2].deb" | sort -Vru)
+    echo $count | awk '{ print $1 }'
 }
 
 # Check if IP is valid
@@ -213,18 +213,33 @@ function check_package_dir() {
   PACKAGES_DIR=$dir
 }
 
+function collect_dependencies_from_package() {
+    local PKG=$1
+    local OIFS=$IFS # store old IFS in buffer
+    IFS=','
+    for section in 'Depends' 'Pre-Depends' ; do
+        pkgs_list="$(dpkg -f $PKG $section)"
+        for item in  ${pkgs_list[@]} ; do
+            dependency=$(echo "$item" | awk '{ printf $1 }')
+            if [[ $dependency != *scalix* ]]; then
+                if [[ $DEPENDENCIES != *$dependency* ]]; then
+                    DEPENDENCIES="$DEPENDENCIES $dependency"
+                fi
+            fi
+        done
+    done
+    IFS=$OIFS
+}
+
 # gether dependencies which need to install
 function collect_dependencies() {
-    SCALIX_SERVER_PACKAGES_EXISTS=$(package_exists "server")
-    if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
-      DEPENDENCIES="libc6:i386 libgssapi3-heimdal:i386 libgcc1:i386 gawk sed util-linux util-linux-locales openssl
-      procps w3m libkrb5-3:i386 libfreetype6:i386 libsasl2-2:i386 libsasl2-modules:i386 libglib2.0-0:i386
-      libxml2:i386 sendmail sendmail-cf libstdc++6:i386 libmilter1.0.1:i386 ed
-       zlib1g:i386 mailutils libldap-2.4-2:i386 "
+    SCALIX_SERVER_PACKAGE=$(find_sx_package "server")
+    if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+        collect_dependencies_from_package "$SCALIX_SERVER_PACKAGE"
     fi
 
-    SCALIX_TOMCAT_PACKAGES_EXISTS=$(package_exists "tomcat")
-    if [ -n "$SCALIX_TOMCAT_PACKAGES_EXISTS" ]; then
+    SCALIX_TOMCAT_PACKAGE=$(find_sx_package "tomcat")
+    if [ -n "$SCALIX_TOMCAT_PACKAGE" ]; then
       if [ -z "$(type -P java)" ]; then
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
@@ -235,17 +250,18 @@ function collect_dependencies() {
 
     fi
 
-    local result=$(package_exists "postgres")
+    local result=$(find_sx_package "postgres")
     if [ "$result" != "0" -a -z "$(type -P psql)" ]; then
       DEPENDENCIES="$DEPENDENCIES postgresql"
     fi
 }
 
 # install scalix packages
-function install() {
+function install_sx_package() {
   echo "Installing $1"
-  for entry in $(ls $PACKAGES_DIR | grep -E "$2" | grep -E ".*$3\.deb")
+  for entry in $2
   do
+    sx_package=$(find_sx_package $entry $3)
     safety_exec "dpkg -i $4 \"$PACKAGES_DIR/$entry\""
   done
 }
@@ -255,7 +271,7 @@ check_package_dir $PACKAGES_DIR
 collect_dependencies $PACKAGES_DIR
 
 echo "Force add i386 architecture if needed"
-add_i386_arch
+dpkg_add_i386_arch
 
 if [ -n "$DEPENDENCIES" ]; then
   echo "Before installing Scalix you must install following dependencies"
@@ -275,10 +291,10 @@ if [ -n "$DEPENDENCIES" ]; then
   $APT_CMD install $DEPENDENCIES
 fi
 
-if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
-  install "installing libical" "libical" "i386"
-  install "libical, chardet and iconv" "chardet|iconv" $SERVER_ARCH
-  install "Scalix server core" "server" $SERVER_ARCH $DPKG_ARGS
+if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+  install_sx_package "installing libical" "libical" "i386"
+  install_sx_package "libical, chardet and iconv" "chardet iconv" $SERVER_ARCH
+  install_sx_package "Scalix server core" "server" $SERVER_ARCH $DPKG_ARGS
 
   export PATH=/opt/scalix/bin:$PATH
 
@@ -308,10 +324,10 @@ if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
 
 fi
 
-if [ -n "$SCALIX_TOMCAT_PACKAGES_EXISTS" ]; then
-  install "Tomcat Connector" "tomcat-connector" "all"
-  install "Scalix Tomcat " "tomcat_" "all"
-  install "All available web applications" 'mobile|res|swa|wireless|platform|sac|postgres|sis' "all"
+if [ -n "$SCALIX_TOMCAT_PACKAGE" ]; then
+  install_sx_package "Tomcat Connector" "tomcat-connector" "all"
+  install_sx_package "Scalix Tomcat " "tomcat_" "all"
+  install_sx_package "All available web applications" 'mobile res swa wireless platform sac postgres sis' "all"
   if [ -d "/opt/scalix-postgres/bin" ]; then
     export PATH=/opt/scalix-postgres/bin:$PATH
   fi
