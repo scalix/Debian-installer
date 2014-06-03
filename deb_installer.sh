@@ -279,7 +279,12 @@ function install_sx_package() {
   for entry in $2
   do
     sx_package=$(find_sx_package $entry $3)
-    safety_exec "dpkg -i $4 \"$PACKAGES_DIR/$entry\""
+    if [ -f "$sx_package" ]; then
+        safety_exec "dpkg -i $4 \"$sx_package\""
+    else
+        echo "Could not find package $entry. Installation failed."
+        exit 2
+    fi
   done
 }
 
