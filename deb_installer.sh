@@ -58,19 +58,6 @@ if [ "$(uname -m)" == "x86_64" ]; then
     x86_64=true
 fi
 
-
-IS_UBUNTU12=false
-if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
-  ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
-  if [ $ubuntu_version -lt 13 ]; then
-      IS_UBUNTU12=true
-  fi
-fi
-
-awk_print='{ print $2; }'
-if [[ $x86_64 ]] && [[ $IS_UBUNTU12 == false ]] ; then
-    awk_print='{ print $2":"$4; }'
-fi
 INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk "$awk_print")
 
 function remove_scalix() {
@@ -129,29 +116,6 @@ if [ -z "$(echo $FQDN | grep -P $FQDN_PATTERN)" ]; then
     exit 2
 fi
 
-if $IS_UBUNTU12; then
-    SERVER_ARCH="ubuntu12"
-    if $x86_64; then
-        echo
-        echo " At this moment Ubuntu 12.04 x64(amd64) has issues with unresolved
- dependencies in scalix-server package. To install scalix-server package we will
- automatically add option \"--force-all\" for dpkg command and all errors will
- be ignored during instaltion. All necessary dependencies will be suggested to
- you to install before installing packages."
-        echo
-        echo
-        while true; do
-            read -p "Do you wish to install scalix despite this issue ( yes / no ) ?" yn
-            case $yn in
-                [Yy]* ) DPKG_ARGS=" --force-all "; break;;
-                [Nn]* ) exit;;
-                * ) echo "Please answer yes or no.";;
-            esac
-        done
-    fi
-fi
-
-
 # get real path
 function realpath() {
   if [ ! -z "$1" ]; then
@@ -185,32 +149,9 @@ function dpkg_cmd_add_i386_arch() {
   fi
 }
 
-# Ubuntu 12.04
-function manual_add_i386_arch() {
-  local arch_file='/etc/dpkg/dpkg.cfg.d/multiarch' #architectures
-  if [ -f "$arch_file" ]; then
-    local arch=$(grep i386 $arch_file)
-    if [ -z "$arch" ]; then
-      echo "foreign-architecture i386" > $arch_file
-    fi
-  else
-    echo "foreign-architecture i386" > $arch_file
-  fi
-}
-
 # add i386 architecture to system to be able to install i386 packages
 function add_i386_arch() {
-  if [[ $KERNEL_VERSION = *Debian* ]]; then
-    dpkg_cmd_add_i386_arch
-  elif [[ $KERNEL_VERSION = *Ubuntu* ]]; then
-    if $IS_UBUNTU12; then
-      if $x86_64; then
-          manual_add_i386_arch
-      fi
-    else
-      dpkg_cmd_add_i386_arch
-    fi
-  fi
+  dpkg_cmd_add_i386_arch
   $APT_CMD update
 }
 
