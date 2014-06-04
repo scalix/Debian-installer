@@ -421,11 +421,11 @@ for file in $files; do
 
 done
 
-if [ -n $(dpkg-query -l scalix-sac | grep ii ) ]; then
+if [ -n "$(dpkg-query -l scalix-sac | grep ii )" ]; then
     use_https_for_webapp "Scalix Administration console", 'sac'
 fi
 
-if [ -n $(dpkg-query -l scalix-sac | grep ii ) ]; then
+if [ -n "$(dpkg-query -l scalix-sac | grep ii )" ]; then
     use_https_for_webapp "Scalix Web Access", 'swa'
 fi
 
