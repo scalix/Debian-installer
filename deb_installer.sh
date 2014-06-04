@@ -58,7 +58,7 @@ if [ "$(uname -m)" == "x86_64" ]; then
     x86_64=true
 fi
 
-INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk "$awk_print")
+INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk '{ printf $2 " " }')
 
 function remove_scalix() {
 
@@ -192,7 +192,7 @@ function valid_ip()
 
 function use_https_for_webapp() {
     while true; do
-        readp "Do you whant to use secure connection HTTPS instead HTTP for $1 ( yes / no ) ?" yn
+        read -p "Do you whant to use secure connection HTTPS instead HTTP for $1 ( yes / no ) ?" yn
         case $yn in
             [Yy]* )
                 for i in $(sxtomcat-get-mounted-instances) ; do
@@ -425,8 +425,8 @@ if [ -n "$(dpkg-query -l scalix-sac | grep ii )" ]; then
     use_https_for_webapp "Scalix Administration console", 'sac'
 fi
 
-if [ -n "$(dpkg-query -l scalix-sac | grep ii )" ]; then
-    use_https_for_webapp "Scalix Web Access", 'swa'
+if [ -n "$(dpkg-query -l scalix-swa | grep ii )" ]; then
+    use_https_for_webapp "Scalix Web Access", 'webmail'
 fi
 
 echo "Running sxmkindex: redirecting output to /var/log/sxmkindex.log"
