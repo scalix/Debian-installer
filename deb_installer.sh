@@ -267,9 +267,9 @@ function collect_dependencies() {
 
     fi
 
-    local result=$(find_sx_package "postgres")
-    if [ "$result" != "0" -a -z "$(type -P psql)" ]; then
-      DEPENDENCIES="$DEPENDENCIES postgresql"
+    local sx_postgres=$(find_sx_package "postgres")
+    if [ -n "$sx_postgres" ]; then
+      collect_dependencies_from_package "$sx_postgres"
     fi
 }
 
