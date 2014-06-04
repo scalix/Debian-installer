@@ -46,7 +46,7 @@ FQDN=$(hostname -f)
 SHORT=${HOST:0:1}${HOST: -1:1}
 MNODE=$(uname -n)
 
-FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.)+(?:[a-zA-Z]{2,})$)'
+FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
 
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
