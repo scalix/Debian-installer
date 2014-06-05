@@ -60,6 +60,11 @@ fi
 
 INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk '{ printf $2 " " }')
 
+if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
+  ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
+  SERVER_ARCH="ubuntu$ubuntu_version"
+fi
+
 function remove_scalix() {
 
     if [ -z "$INSTALLED_PACKAGES" ]; then
