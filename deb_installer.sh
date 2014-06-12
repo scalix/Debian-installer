@@ -251,6 +251,13 @@ function collect_dependencies_from_package() {
         for item in  ${pkgs_list[@]} ; do
             dependency=$(echo "$item" | awk '{ printf $1 }')
             if [[ $dependency != *scalix* ]]; then
+                if [[ $dependency == *\|* ]]; then
+                    if $x86_64; then
+                        dependency=$(echo "$dependency" | awk -F'|' '{ printf $2 }')
+                    else
+                        dependency=$(echo "$dependency" | awk -F'|' '{ printf $1 }')
+                    fi
+                fi
                 if [[ $DEPENDENCIES != *$dependency* ]]; then
                     DEPENDENCIES="$DEPENDENCIES $dependency"
                 fi
