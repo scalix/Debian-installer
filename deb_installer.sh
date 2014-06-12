@@ -382,7 +382,8 @@ files="$base/webmail/swa.properties \
        $base/mobile/mobile.properties \
        $base/sis/sis.properties \
        $base/caa/config/krblogin.conf \
-       $base/res/config/krblogin.conf"
+       $base/res/config/krblogin.conf \
+       $base/wireless/wireless.properties"
 
 for file in $files; do
   sed -e "s;%LOCALDOMAIN%;$LDOMAIN;g" \
