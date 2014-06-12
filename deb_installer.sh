@@ -16,6 +16,7 @@
 # Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
 #
 
+
 echo "
 ----------------------------------------------------------------------
 Scalix Debian installer. Please take a look at
@@ -45,7 +46,7 @@ HOST=$(hostname)
 FQDN=$(hostname -f)
 SHORT=${HOST:0:1}${HOST: -1:1}
 MNODE=$(uname -n)
-
+RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
 FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
 
 APT_CMD=$(type -P aptitude)
@@ -58,11 +59,16 @@ if [ "$(uname -m)" == "x86_64" ]; then
     x86_64=true
 fi
 
+echo "System platform: $RELEASE_NAME"
+
 INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk '{ printf $2 " " }')
 
 if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
-  ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
-  SERVER_ARCH="ubuntu$ubuntu_version"
+    ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
+    if [ "$ubuntu_version" -lt 13 ]; then
+        echo "Unfortunately this release of Ubuntu ($RELEASE_NAME) is not supported"
+    fi
+    SERVER_ARCH="ubuntu$ubuntu_version"
 fi
 
 function remove_scalix() {
