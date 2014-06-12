@@ -67,6 +67,7 @@ if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
     ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
     if [ "$ubuntu_version" -lt 13 ]; then
         echo "Unfortunately this release of Ubuntu ($RELEASE_NAME) is not supported"
+        exit 1
     fi
     SERVER_ARCH="ubuntu$ubuntu_version"
 fi
