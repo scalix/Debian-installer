@@ -96,7 +96,7 @@ function download_packages() {
         if [ -d "$server_backup_folder" ]; then
             local dircount=1
             while [ -d "$server_backup_folder-$dircount" ]; do
-                dircount=$(expr $dircount + 1)
+                dircount=$(eval expr "$dircount" + 1)
             done
             server_backup_folder="$server_backup_folder-$dircount"
         fi
@@ -104,13 +104,13 @@ function download_packages() {
     fi
     mkdir -p "$PWD/server"
     cd "$PWD/server"
-    wget -i http://downloads.scalix.com/debian/?type=deb
+    wget -i http://downloads.scalix.com/debian/?type=deb,gz
     cd "$PACKAGES_DIR"
 }
 
 if [ -n "$1" ]; then
     case "$1" in
-        "--purge" ) remove_scalix; break;;
+        "--purge" ) remove_scalix;;
         "--update" ) download_packages;;
         * ) echo "Unknown argument."; exit 123;;
     esac
@@ -120,7 +120,8 @@ if [ -d "$PWD/server" ]; then
   PACKAGES_DIR="$PWD/server"
 fi
 
-if [ -z "$(echo $FQDN | grep -P $FQDN_PATTERN)" ]; then
+if ! hostname -f | grep -q -P "$FQDN_PATTERN";
+then
     echo "Invalid fully-qualified hostname - '$FQDN' (your current FQDN hostname)"
     echo "The \"hostname\" command should return the short hostname, while the
 \"hostname --fqdn\" command should return the fully-qualified hostname"
@@ -131,14 +132,14 @@ fi
 # get real path
 function realpath() {
   if [ ! -z "$1" ]; then
-    echo $(readlink -f $1)
+    readlink -f "$1"
   fi
 }
 
 # execute command and if returned status not 0 than exit
 function safety_exec() {
     echo "executing command $1"
-    eval $1
+    eval "$1"
     local error=$?
     if test $error -gt 0
     then
@@ -169,7 +170,7 @@ function find_sx_package () {
     if ! $x86_64; then
         skip="*x86_64*"
     fi
-    local count=$(find $path ! -name "$skip" -name "scalix-$1*[$SERVER_ARCH|all|$2].deb" | sort -Vru)
+    local count=$(find "$PACKAGES_DIR" ! -name "$skip" -name "scalix-$1*[$SERVER_ARCH|all|$2].deb" | sort -Vru)
     echo $count | awk '{ print $1 }'
 }
 
@@ -208,7 +209,7 @@ function use_https_for_webapp() {
         case $yn in
             [Yy]* )
                 for i in $(sxtomcat-get-mounted-instances) ; do
-                    sxtomcat-webapps --forcehttps $i $2
+                    sxtomcat-webapps --forcehttps "$i" "$2"
                 done
                 break
             ;;
@@ -222,22 +223,22 @@ function use_https_for_webapp() {
 # ask user for external ip for scalix postgres.
 function get_external_ip() {
   read -p "Please enter the external ip address of your Scalix box? " ip
-  if valid_ip $ip; then EXTERNAL_IP=$ip; else get_external_ip; fi
+  if valid_ip "$ip"; then EXTERNAL_IP=$ip; else get_external_ip; fi
 }
 
 # check directory if it contains scalix packages
 function check_package_dir() {
-  if [ -z "$1" -o ! -d "$(realpath $1)" ]; then
+  if [ -z "$1" -o ! -d "$(realpath "$1")" ]; then
     echo "Folder $1 does not exists or not readable. "
     read -p "Please specify another folder with deb packages: " dir
-    check_package_dir $dir
+    check_package_dir "$dir"
   fi
-  local dir=$(realpath $1)
-  local pkgs_count=$(find $1 -maxdepth 1 -type f -name 'scalix*\.deb'  | grep -v ^l | wc -l)
+  local dir=$(realpath "$1")
+  local pkgs_count=$(find "$dir" -maxdepth 1 -type f -name 'scalix*\.deb' | grep -v ^l -c)
   if [ "$pkgs_count" = "0" ]; then
     echo "Folder $1 does not contain deb packages"
     read -p "Please specify another folder with deb packages: " dir
-    check_package_dir $dir
+    check_package_dir "$dir"
   fi
   PACKAGES_DIR=$dir
 }
@@ -247,8 +248,7 @@ function collect_dependencies_from_package() {
     local OIFS=$IFS # store old IFS in buffer
     IFS=','
     for section in 'Depends' 'Pre-Depends' ; do
-        pkgs_list="$(dpkg -f $PKG $section)"
-        for item in  ${pkgs_list[@]} ; do
+        for item in $(dpkg -f "$PKG" $section) ; do
             dependency=$(echo "$item" | awk '{ printf $1 }')
             if [[ $dependency != *scalix* ]]; then
                 if [[ $dependency == *\|* ]]; then
@@ -280,12 +280,11 @@ function collect_dependencies() {
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
 
-      if [ -z "$(dpkg-query -l apache2 | grep ii )" ]; then
+      if ! dpkg-query -l apache2 | grep -q ii;
+      then
         DEPENDENCIES="$DEPENDENCIES apache2"
       fi
-
     fi
-
     local sx_postgres=$(find_sx_package "postgres")
     if [ -n "$sx_postgres" ]; then
       collect_dependencies_from_package "$sx_postgres"
@@ -297,7 +296,7 @@ function install_sx_package() {
   echo "Installing $1"
   for entry in $2
   do
-    sx_package=$(find_sx_package $entry $3)
+    sx_package=$(find_sx_package "$entry" "$3")
     if [ -f "$sx_package" ]; then
         safety_exec "dpkg -i $4 \"$sx_package\""
     else
@@ -307,9 +306,9 @@ function install_sx_package() {
   done
 }
 
-check_package_dir $PACKAGES_DIR
+check_package_dir "$PACKAGES_DIR"
 
-collect_dependencies $PACKAGES_DIR
+collect_dependencies "$PACKAGES_DIR"
 
 echo "Force add i386 architecture if needed"
 dpkg_add_i386_arch
@@ -317,7 +316,7 @@ dpkg_add_i386_arch
 if [ -n "$DEPENDENCIES" ]; then
   echo "Before installing Scalix you must install following dependencies"
   echo
-  echo $DEPENDENCIES
+  echo "$DEPENDENCIES"
   echo
   $APT_CMD install $DEPENDENCIES
 
@@ -334,8 +333,8 @@ fi
 
 if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
   install_sx_package "installing libical" "libical" "i386"
-  install_sx_package "libical, chardet and iconv" "chardet iconv" $SERVER_ARCH
-  install_sx_package "Scalix server core" "server" $SERVER_ARCH $DPKG_ARGS
+  install_sx_package "libical, chardet and iconv" "chardet iconv" "$SERVER_ARCH"
+  install_sx_package "Scalix server core" "server" "$SERVER_ARCH" "$DPKG_ARGS"
 
   export PATH=/opt/scalix/bin:$PATH
 
@@ -350,17 +349,17 @@ if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
   sxconfig --set -t general.usrl_cn_rule='G S'
   sxconfig --set -t general.usrl_authid_rule='l@'
   sxconfig --set -t orniasys.name_part_1='"C" <S>' -t orniasys.domain_part_1="$LDOMAIN" # com
-  omaddmn -m $MNODE
+  omaddmn -m "$MNODE"
   omrc -n
   omadmidp -a -s 66000 -n 100
-  omaddu -n sxadmin/$MNODE --class limited -c admin -p "$admpwd" sxadmin
+  omaddu -n "sxadmin/$MNODE" --class limited -c admin -p "$admpwd" sxadmin
   omconfenu -n "sxadmin/$MNODE"
   omlimit -u "sxadmin/$MNODE" -o -i 0 -m 0
-  omaddu -n sxqueryadmin/$MNODE --class limited -c admin -p $ldappwd sxqueryadmin@$FQDN
-  omaddpdl -l ScalixUserAdmins/$MNODE
-  omaddpdl -l ScalixUserAttributesAdmins/$MNODE
-  omaddpdl -l ScalixGroupAdmins/$MNODE
-  omaddpdl -l ScalixAdmins/$MNODE
+  omaddu -n "sxqueryadmin/$MNODE" --class limited -c admin -p "$ldappwd" "sxqueryadmin@$FQDN"
+  omaddpdl -l "ScalixUserAdmins/$MNODE"
+  omaddpdl -l "ScalixUserAttributesAdmins/$MNODE"
+  omaddpdl -l "ScalixGroupAdmins/$MNODE"
+  omaddpdl -l "ScalixAdmins/$MNODE"
   omon -s all
 
 fi
@@ -381,10 +380,10 @@ echo "Configuring scalix-postgres"
 if [ -d "/opt/scalix-postgres/bin" ]; then
     read -s -p "Please enter a password for the db user? " dbpwd
     echo
-    sxpsql-setpwd $dbpwd
-    echo $dbpwd > "$base/caa/scalix.res/config/psdata"
+    sxpsql-setpwd "$dbpwd"
+    echo "$dbpwd" > "$base/caa/scalix.res/config/psdata"
     get_external_ip
-    sxpsql-whitelist $EXTERNAL_IP
+    sxpsql-whitelist "$EXTERNAL_IP"
 fi
 
 echo "Setting up settings for web applications"
@@ -432,8 +431,8 @@ for file in $files; do
       -e "s;%INDEX-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
       -e "s;%SEARCH-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
       -e "s;%INDEXADMIN-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
-      $file > $file.neu
-  mv $file.neu $file
+      "$file" > "$file.neu"
+  mv "$file.neu" "$file"
   email_domain=$(grep swa.email.domain "$base/webmail/swa.properties")
   if [ -z "$email_domain" ]; then
     echo "swa.email.domain=$FQDN" >> "$base/webmail/swa.properties"
@@ -441,11 +440,13 @@ for file in $files; do
 
 done
 
-if [ -n "$(dpkg-query -l scalix-sac | grep ii )" ]; then
+if dpkg-query -l scalix-sac | grep -q ii ;
+then
     use_https_for_webapp "Scalix Administration console", 'sac'
 fi
 
-if [ -n "$(dpkg-query -l scalix-swa | grep ii )" ]; then
+if dpkg-query -l scalix-swa | grep -q ii ;
+then
     use_https_for_webapp "Scalix Web Access", 'webmail'
 fi
 
