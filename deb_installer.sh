@@ -170,6 +170,7 @@ function find_sx_package () {
     if ! $x86_64; then
         skip="*x86_64*"
     fi
+
     local count=$(find "$PACKAGES_DIR" ! -name "$skip" -name "scalix-$1*[$SERVER_ARCH|all|$2].deb" | sort -Vru)
     echo $count | awk '{ print $1 }'
 }
@@ -332,7 +333,7 @@ if [ -n "$DEPENDENCIES" ]; then
 fi
 
 if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
-  install_sx_package "installing libical" "libical" "i386"
+  install_sx_package "installing libical" "libical" "$SERVER_ARCH"
   install_sx_package "libical, chardet and iconv" "chardet iconv" "$SERVER_ARCH"
   install_sx_package "Scalix server core" "server" "$SERVER_ARCH" "$DPKG_ARGS"
 
