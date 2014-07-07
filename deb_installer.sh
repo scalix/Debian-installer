@@ -432,6 +432,7 @@ for file in $files; do
       -e "s;%SEARCH-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
       -e "s;%INDEXADMIN-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
       "$file" > "$file.neu"
+  cp -rf "$file"  "$file$(date +%F_%R_%S)"
   mv "$file.neu" "$file"
   email_domain=$(grep swa.email.domain "$base/webmail/swa.properties")
   if [ -z "$email_domain" ]; then
