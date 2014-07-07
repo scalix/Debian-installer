@@ -31,22 +31,11 @@ if you don't have deb packages run script with  '--update' argument (it will dow
 ```sh
 ~#./deb_installer.sh --update
 ```
-otherwise (under root user) 
+otherwise (under root user)
 ```sh
 ~#./deb_installer.sh
 ```
 All necessary dependencies will be automatically checked and you must just confirm to install them.
-
-### Issues ###
-1.  For Ubuntu 12.04 x86_64 scalix-server.deb has incorrect dependencies, so for now script will ignore all dependencies errors (it will show appropriate confirmation)
-2. due to some dependencies openssh-server can be removed from you system. So please after installation check if  openssh-server is installed.
-```
-aptitude install openssh-server
-```
-or 
-```
-apt-get install openssh-server
-```
 
 ### Contact ###
 If you have questions or proposition please contact with abr@scalix.com
