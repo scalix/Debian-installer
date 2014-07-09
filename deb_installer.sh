@@ -168,9 +168,10 @@ function dpkg_add_i386_arch() {
 function find_sx_package () {
     local skip=''
     if ! $x86_64; then
-        skip="*x86_64*"
+        skip="*amd64*"
+    elif [ "$1" == "server" ]; then
+        skip="*i386*"
     fi
-
     local count=$(find "$PACKAGES_DIR" ! -name "$skip" -name "scalix-$1*[$SERVER_ARCH|all|$2].deb" | sort -Vru)
     echo $count | awk '{ print $1 }'
 }
