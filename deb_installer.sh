@@ -129,6 +129,14 @@ then
     exit 2
 fi
 
+if ! grep "$FQDN" /etc/hosts
+then
+    echo "File /etc/hosts does not contain '$FQDN' (fully-qualified hostname)."
+    echo "Please add '$FQDN' to the /etc/hosts to proceed next step."
+    echo
+    exit 3
+fi
+
 # get real path
 function realpath() {
   if [ ! -z "$1" ]; then
