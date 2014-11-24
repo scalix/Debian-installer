@@ -496,7 +496,6 @@ cat << EOF
 #
 # Admin Console: http://$FQDN/sac
 # Webmail:       http://$FQDN/webmail
-# Mobile Client: http://$FQDN/m
 # API:           http://$FQDN/api/dav
 #
 ############################################################
