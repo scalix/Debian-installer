@@ -402,7 +402,6 @@ files="$base/webmail/swa.properties \
        $base/caa/scalix.res/config/ubermanager.properties \
        $base/res/config/res.properties \
        $base/platform/platform.properties \
-       $base/mobile/mobile.properties \
        $base/sis/sis.properties \
        $base/caa/config/krblogin.conf \
        $base/res/config/krblogin.conf \
