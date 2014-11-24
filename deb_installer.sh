@@ -377,7 +377,7 @@ fi
 if [ -n "$SCALIX_TOMCAT_PACKAGE" ]; then
   install_sx_package "Tomcat Connector" "tomcat-connector" "all"
   install_sx_package "Scalix Tomcat " "tomcat_" "all"
-  install_sx_package "All available web applications" 'mobile res swa wireless platform sac postgres sis' "all"
+  install_sx_package "All available web applications" 'res swa wireless platform sac postgres sis' "all"
   if [ -d "/opt/scalix-postgres/bin" ]; then
     export PATH=/opt/scalix-postgres/bin:$PATH
   fi
