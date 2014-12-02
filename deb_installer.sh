@@ -77,6 +77,9 @@ function remove_scalix() {
     if [ -z "$INSTALLED_PACKAGES" ]; then
         echo "There are no installed packages to remove."
     else
+        if [ -n "$(type -P apt-get)" ]; then
+            APT_CMD=$(type -P apt-get)
+        fi
         $APT_CMD purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
         rm -rf /var/opt/scalix
