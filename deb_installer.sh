@@ -51,7 +51,12 @@ FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(
 
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
-  APT_CMD=$(type -P apt-get)
+  $(type -P apt-get) install aptitude
+  APT_CMD=$(type -P aptitude)
+  if [ -z "$APT_CMD" ]; then
+     echo "Could not determine aptitude."
+     exit 127
+  fi
 fi
 
 x86_64=false
