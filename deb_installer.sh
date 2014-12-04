@@ -54,7 +54,7 @@ if [ -z "$APT_CMD" ]; then
   $(type -P apt-get) install aptitude
   APT_CMD=$(type -P aptitude)
   if [ -z "$APT_CMD" ]; then
-     echo "Could not determine aptitude."
+     echo "Could not find aptitude command."
      exit 127
   fi
 fi
@@ -143,6 +143,15 @@ then
     echo "Please add '$FQDN' to the /etc/hosts to proceed next step."
     echo
     exit 3
+fi
+
+IF_IPS=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
+FQDN_IP=$(hostname --ip-address)
+if [[ $IF_IPS != *$FQDN_IP* ]]
+then
+    echo "FQDN ip address $FQDN_IP is not for local machine."
+    echo -e "Ip addresses for machine interfaces (except localhost ip):\n$IF_IPS"
+    exit 4
 fi
 
 # get real path
