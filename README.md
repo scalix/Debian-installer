@@ -1,14 +1,14 @@
 Debian-installer
 ================
 
-Scalix Installer for Debian 7( Wheezy), Ubuntu 12.04 and 13.04
+Scalix Installer for Debian 7( Wheezy), Ubuntu 13.04 and 14.04
 
 ### Requiments ###
 1. Debian 7, Ubuntu 12.04 or 13.04 (i386, x86_64).
 2. at least 600Mb of RAM.
 3. 300Mb free space on  hard drive.
 4. valid FQDN hostname. [Fully qualified domain name(FQDN)][1]
-5. Oracle Java runtime environment(minimal version 1.5, maximum version 1.7.X). JRE from IBM is not supported. Scalix does not support openJDK on production servers, however it is possible to use openJDK on low-load non-production installations.  Please visit wiki page [Working with JRE][2]  for more details about Java/JDK and Scalix.
+5. Oracle Java runtime environment(minimal version 1.6, maximum version 1.8.X). JRE from IBM is not supported. Scalix does not support openJDK on production servers, however it is possible to use openJDK on low-load non-production installations.  Please visit wiki page [Working with JRE][2]  for more details about Java/JDK and Scalix.
 
 For more information please visit [Manual Installation][3].
 
@@ -36,10 +36,6 @@ otherwise (under root user)
 ~#./deb_installer.sh
 ```
 All necessary dependencies will be automatically checked and you must just confirm to install them.
-
-### Contact ###
-If you have questions or proposition please contact with abr@scalix.com
-
 
   [1]: http://en.wikipedia.org/wiki/Fully_qualified_domain_name
   [2]: http://scalix.com/wiki/index.php?title=HowTos/Working_with_JRE
