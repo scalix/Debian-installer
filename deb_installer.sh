@@ -337,6 +337,7 @@ check_package_dir "$PACKAGES_DIR"
 
 collect_dependencies "$PACKAGES_DIR"
 
+
 echo "Force add i386 architecture if needed"
 dpkg_add_i386_arch
 
@@ -358,7 +359,27 @@ if [ -n "$DEPENDENCIES" ]; then
   $APT_CMD install $DEPENDENCIES
 fi
 
+
 if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+
+  SENDMAILCONFIG=$(type -P sendmailconfig)
+  if [ -z "$SENDMAILCONFIG" ]; then
+      echo "Could not find sendmailconfig utility skiping sendmail configuration check"
+  else
+      SENDMAILCONFIG_OUTPUT=$($SENDMAILCONFIG --no-reload 2>&1 <<-@@ | grep 'ERROR:'
+Y
+Y
+@@
+)
+    if [[ $SENDMAILCONFIG_OUTPUT = *ERROR:* ]]; then
+        echo "Your currnet sendmail configuration has errors."
+        echo "Please resolve following errors in sendmail configuration"
+        echo "to proceed  with scalix server installation"
+        echo -e "\n$SENDMAILCONFIG_OUTPUT\n"
+        exit 5
+    fi
+  fi
+
   install_sx_package "installing libical" "libical" "$SERVER_ARCH"
   install_sx_package "libical, chardet and iconv" "chardet iconv" "$SERVER_ARCH"
   install_sx_package "Scalix server core" "server" "$SERVER_ARCH" "$DPKG_ARGS"
