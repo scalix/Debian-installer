@@ -145,7 +145,7 @@ then
     exit 3
 fi
 
-IF_IPS=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
+IF_IPS=$(ip address | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
 FQDN_IP=$(hostname --ip-address)
 if [[ $IF_IPS != *$FQDN_IP* ]]
 then
