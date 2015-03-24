@@ -16,6 +16,7 @@
 # Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
 #
 
+
 echo "
 ----------------------------------------------------------------------
 Scalix Debian installer. Please take a look at
@@ -30,8 +31,8 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 DEPENDENCIES=""
-SCALIX_SERVER_PACKAGES_EXISTS=""
-SCALIX_TOMCAT_PACKAGES_EXISTS=""
+SCALIX_SERVER_PACKAGE=""
+SCALIX_TOMCAT_PACKAGE=""
 SERVER_ARCH="deb7"
 DPKG_ARGS=""
 PACKAGES_DIR="$PWD"
@@ -45,12 +46,17 @@ HOST=$(hostname)
 FQDN=$(hostname -f)
 SHORT=${HOST:0:1}${HOST: -1:1}
 MNODE=$(uname -n)
-
-FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.)+(?:[a-zA-Z]{2,})$)'
+RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
+FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
 
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
-  APT_CMD=$(type -P apt-get)
+  $(type -P apt-get) install aptitude
+  APT_CMD=$(type -P aptitude)
+  if [ -z "$APT_CMD" ]; then
+     echo "Could not find aptitude command."
+     exit 127
+  fi
 fi
 
 x86_64=false
@@ -58,26 +64,28 @@ if [ "$(uname -m)" == "x86_64" ]; then
     x86_64=true
 fi
 
+echo "System platform: $RELEASE_NAME"
 
-IS_UBUNTU12=false
+INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk '{ printf $2 " " }')
+
 if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
-  ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
-  if [ $ubuntu_version -lt 13 ]; then
-      IS_UBUNTU12=true
-  fi
+    ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
+    if [ "$ubuntu_version" -lt 13 ]; then
+        echo "Unfortunately this release of Ubuntu ($RELEASE_NAME) is not supported"
+        exit 1
+    fi
+    SERVER_ARCH="ubuntu$ubuntu_version"
 fi
-
-awk_print='{ print $2; }'
-if [[ $x86_64 ]] && [[ $IS_UBUNTU12 == false ]] ; then
-    awk_print='{ print $2":"$4; }'
-fi
-INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk "$awk_print")
 
 function remove_scalix() {
 
     if [ -z "$INSTALLED_PACKAGES" ]; then
         echo "There are no installed packages to remove."
     else
+        if [ -n "$(type -P apt-get)" ]; then
+            APT_CMD=$(type -P apt-get)
+        fi
+
         $APT_CMD purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
         rm -rf /var/opt/scalix
@@ -97,7 +105,7 @@ function download_packages() {
         if [ -d "$server_backup_folder" ]; then
             local dircount=1
             while [ -d "$server_backup_folder-$dircount" ]; do
-                dircount=$(expr $dircount + 1)
+                dircount=$(eval expr "$dircount" + 1)
             done
             server_backup_folder="$server_backup_folder-$dircount"
         fi
@@ -105,13 +113,13 @@ function download_packages() {
     fi
     mkdir -p "$PWD/server"
     cd "$PWD/server"
-    wget -i http://downloads.scalix.com/debian/?type=deb
+    wget -i http://downloads.scalix.com/debian/?type=deb,gz
     cd "$PACKAGES_DIR"
 }
 
 if [ -n "$1" ]; then
     case "$1" in
-        "--purge" ) remove_scalix; break;;
+        "--purge" ) remove_scalix;;
         "--update" ) download_packages;;
         * ) echo "Unknown argument."; exit 123;;
     esac
@@ -121,7 +129,8 @@ if [ -d "$PWD/server" ]; then
   PACKAGES_DIR="$PWD/server"
 fi
 
-if [ -z "$(echo $FQDN | grep -P $FQDN_PATTERN)" ]; then
+if ! hostname -f | grep -q -P "$FQDN_PATTERN";
+then
     echo "Invalid fully-qualified hostname - '$FQDN' (your current FQDN hostname)"
     echo "The \"hostname\" command should return the short hostname, while the
 \"hostname --fqdn\" command should return the fully-qualified hostname"
@@ -129,40 +138,34 @@ if [ -z "$(echo $FQDN | grep -P $FQDN_PATTERN)" ]; then
     exit 2
 fi
 
-if $IS_UBUNTU12; then
-    SERVER_ARCH="ubuntu12"
-    if $x86_64; then
-        echo
-        echo " At this moment Ubuntu 12.04 x64(amd64) has issues with unresolved
- dependencies in scalix-server package. To install scalix-server package we will
- automatically add option \"--force-all\" for dpkg command and all errors will
- be ignored during instaltion. All necessary dependencies will be suggested to
- you to install before installing packages."
-        echo
-        echo
-        while true; do
-            read -p "Do you wish to install scalix despite this issue ( yes / no ) ?" yn
-            case $yn in
-                [Yy]* ) DPKG_ARGS=" --force-all "; break;;
-                [Nn]* ) exit;;
-                * ) echo "Please answer yes or no.";;
-            esac
-        done
-    fi
+if ! grep "$FQDN" /etc/hosts
+then
+    echo "File /etc/hosts does not contain '$FQDN' (fully-qualified hostname)."
+    echo "Please add '$FQDN' to the /etc/hosts to proceed next step."
+    echo
+    exit 3
 fi
 
+IF_IPS=$(ip address | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
+FQDN_IP=$(hostname --ip-address)
+if [[ $IF_IPS != *$FQDN_IP* ]]
+then
+    echo "FQDN ip address $FQDN_IP is not for local machine."
+    echo -e "Ip addresses for machine interfaces (except localhost ip):\n$IF_IPS"
+    exit 4
+fi
 
 # get real path
 function realpath() {
   if [ ! -z "$1" ]; then
-    echo $(readlink -f $1)
+    readlink -f "$1"
   fi
 }
 
 # execute command and if returned status not 0 than exit
 function safety_exec() {
     echo "executing command $1"
-    eval $1
+    eval "$1"
     local error=$?
     if test $error -gt 0
     then
@@ -172,8 +175,9 @@ function safety_exec() {
 }
 
 
+# add i386 architecture to system to be able to install i386 packages
 # Debian 7 and Ubunut 13.04
-function dpkg_cmd_add_i386_arch() {
+function dpkg_add_i386_arch() {
   local arch_file="/var/lib/dpkg/arch"
   if [ -f "$arch_file" ]; then
     local arch=$(grep i386 $arch_file)
@@ -183,41 +187,19 @@ function dpkg_cmd_add_i386_arch() {
   else
     dpkg --add-architecture i386
   fi
-}
-
-# Ubuntu 12.04
-function manual_add_i386_arch() {
-  local arch_file='/etc/dpkg/dpkg.cfg.d/multiarch' #architectures
-  if [ -f "$arch_file" ]; then
-    local arch=$(grep i386 $arch_file)
-    if [ -z "$arch" ]; then
-      echo "foreign-architecture i386" > $arch_file
-    fi
-  else
-    echo "foreign-architecture i386" > $arch_file
-  fi
-}
-
-# add i386 architecture to system to be able to install i386 packages
-function add_i386_arch() {
-  if [[ $KERNEL_VERSION = *Debian* ]]; then
-    dpkg_cmd_add_i386_arch
-  elif [[ $KERNEL_VERSION = *Ubuntu* ]]; then
-    if $IS_UBUNTU12; then
-      if $x86_64; then
-          manual_add_i386_arch
-      fi
-    else
-      dpkg_cmd_add_i386_arch
-    fi
-  fi
   $APT_CMD update
 }
 
 # check if package exists in folder
-function package_exists () {
-    local count=$(find "$PACKAGES_DIR" -name "scalix-$1*[$SERVER_ARCH|all].deb"  | grep -v ^l | wc -l)
-    echo $count
+function find_sx_package () {
+    local skip=''
+    if ! $x86_64; then
+        skip="*amd64*"
+    elif [ "$1" == "server" ]; then
+        skip="*i386*"
+    fi
+    local count=$(find "$PACKAGES_DIR" ! -name "$skip" -name "scalix-$1*[$SERVER_ARCH|all|$2].deb" | sort -Vru)
+    echo $count | awk '{ print $1 }'
 }
 
 # Check if IP is valid
@@ -249,77 +231,121 @@ function valid_ip()
     return $stat
 }
 
+function use_https_for_webapp() {
+    while true; do
+        read -p "Do you whant to use secure connection HTTPS instead HTTP for $1 ( yes / no ) ?" yn
+        case $yn in
+            [Yy]* )
+                for i in $(sxtomcat-get-mounted-instances) ; do
+                    sxtomcat-webapps --forcehttps "$i" "$2"
+                done
+                break
+            ;;
+            [Nn]* ) break;;
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
+}
+
+
 # ask user for external ip for scalix postgres.
 function get_external_ip() {
   read -p "Please enter the external ip address of your Scalix box? " ip
-  if valid_ip $ip; then EXTERNAL_IP=$ip; else get_external_ip; fi
+  if valid_ip "$ip"; then EXTERNAL_IP=$ip; else get_external_ip; fi
 }
 
 # check directory if it contains scalix packages
 function check_package_dir() {
-  if [ -z "$1" -o ! -d "$(realpath $1)" ]; then
+  if [ -z "$1" -o ! -d "$(realpath "$1")" ]; then
     echo "Folder $1 does not exists or not readable. "
     read -p "Please specify another folder with deb packages: " dir
-    check_package_dir $dir
+    check_package_dir "$dir"
   fi
-  local dir=$(realpath $1)
-  local pkgs_count=$(find $1 -maxdepth 1 -type f -name 'scalix*\.deb'  | grep -v ^l | wc -l)
+  local dir=$(realpath "$1")
+  local pkgs_count=$(find "$dir" -maxdepth 1 -type f -name 'scalix*\.deb' | grep -v ^l -c)
   if [ "$pkgs_count" = "0" ]; then
     echo "Folder $1 does not contain deb packages"
     read -p "Please specify another folder with deb packages: " dir
-    check_package_dir $dir
+    check_package_dir "$dir"
   fi
   PACKAGES_DIR=$dir
 }
 
+function collect_dependencies_from_package() {
+    local PKG=$1
+    local OIFS=$IFS # store old IFS in buffer
+    IFS=','
+    for section in 'Depends' 'Pre-Depends' ; do
+        for item in $(dpkg -f "$PKG" $section) ; do
+            dependency=$(echo "$item" | awk '{ printf $1 }')
+            if [[ $dependency != *scalix* ]]; then
+                if [[ $dependency == *\|* ]]; then
+                    if $x86_64; then
+                        dependency=$(echo "$dependency" | awk -F'|' '{ printf $2 }')
+                    else
+                        dependency=$(echo "$dependency" | awk -F'|' '{ printf $1 }')
+                    fi
+                fi
+                if [[ $DEPENDENCIES != *$dependency* ]]; then
+                    DEPENDENCIES="$DEPENDENCIES $dependency"
+                fi
+            fi
+        done
+    done
+    IFS=$OIFS
+}
+
 # gether dependencies which need to install
 function collect_dependencies() {
-    SCALIX_SERVER_PACKAGES_EXISTS=$(package_exists "server")
-    if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
-      DEPENDENCIES="libc6:i386 libgssapi3-heimdal:i386 libgcc1:i386 gawk sed util-linux util-linux-locales openssl
-      procps w3m libkrb5-3:i386 libfreetype6:i386 libsasl2-2:i386 libsasl2-modules:i386 libglib2.0-0:i386
-      libxml2:i386 sendmail sendmail-cf libstdc++6:i386 libmilter1.0.1:i386 ed
-       zlib1g:i386 mailutils libldap-2.4-2:i386 "
+    SCALIX_SERVER_PACKAGE=$(find_sx_package "server")
+    if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+        collect_dependencies_from_package "$SCALIX_SERVER_PACKAGE"
     fi
 
-    SCALIX_TOMCAT_PACKAGES_EXISTS=$(package_exists "tomcat")
-    if [ -n "$SCALIX_TOMCAT_PACKAGES_EXISTS" ]; then
+    SCALIX_TOMCAT_PACKAGE=$(find_sx_package "tomcat")
+    if [ -n "$SCALIX_TOMCAT_PACKAGE" ]; then
       if [ -z "$(type -P java)" ]; then
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
 
-      if [ -z "$(dpkg-query -l apache2 | grep ii )" ]; then
+      if ! dpkg-query -l apache2 | grep -q ii;
+      then
         DEPENDENCIES="$DEPENDENCIES apache2"
       fi
-
     fi
-
-    local result=$(package_exists "postgres")
-    if [ "$result" != "0" -a -z "$(type -P psql)" ]; then
-      DEPENDENCIES="$DEPENDENCIES postgresql"
+    local sx_postgres=$(find_sx_package "postgres")
+    if [ -n "$sx_postgres" ]; then
+      collect_dependencies_from_package "$sx_postgres"
     fi
 }
 
 # install scalix packages
-function install() {
+function install_sx_package() {
   echo "Installing $1"
-  for entry in $(ls $PACKAGES_DIR | grep -E "$2" | grep -E ".*$3\.deb")
+  for entry in $2
   do
-    safety_exec "dpkg -i $4 \"$PACKAGES_DIR/$entry\""
+    sx_package=$(find_sx_package "$entry" "$3")
+    if [ -f "$sx_package" ]; then
+        safety_exec "dpkg -i $4 \"$sx_package\""
+    else
+        echo "Could not find package $entry. Installation failed."
+        exit 2
+    fi
   done
 }
 
-check_package_dir $PACKAGES_DIR
+check_package_dir "$PACKAGES_DIR"
 
-collect_dependencies $PACKAGES_DIR
+collect_dependencies "$PACKAGES_DIR"
+
 
 echo "Force add i386 architecture if needed"
-add_i386_arch
+dpkg_add_i386_arch
 
 if [ -n "$DEPENDENCIES" ]; then
   echo "Before installing Scalix you must install following dependencies"
   echo
-  echo $DEPENDENCIES
+  echo "$DEPENDENCIES"
   echo
   $APT_CMD install $DEPENDENCIES
 
@@ -334,10 +360,30 @@ if [ -n "$DEPENDENCIES" ]; then
   $APT_CMD install $DEPENDENCIES openssh-server
 fi
 
-if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
-  install "installing libical" "libical" "i386"
-  install "libical, chardet and iconv" "chardet|iconv" $SERVER_ARCH
-  install "Scalix server core" "server" $SERVER_ARCH $DPKG_ARGS
+
+if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+
+  SENDMAILCONFIG=$(type -P sendmailconfig)
+  if [ -z "$SENDMAILCONFIG" ]; then
+      echo "Could not find sendmailconfig utility skiping sendmail configuration check"
+  else
+      SENDMAILCONFIG_OUTPUT=$($SENDMAILCONFIG --no-reload 2>&1 <<-@@ | grep 'ERROR:'
+Y
+Y
+@@
+)
+    if [[ $SENDMAILCONFIG_OUTPUT = *ERROR:* ]]; then
+        echo "Your currnet sendmail configuration has errors."
+        echo "Please resolve following errors in sendmail configuration"
+        echo "to proceed  with scalix server installation"
+        echo -e "\n$SENDMAILCONFIG_OUTPUT\n"
+        exit 5
+    fi
+  fi
+
+  install_sx_package "installing libical" "libical" "$SERVER_ARCH"
+  install_sx_package "libical, chardet and iconv" "chardet iconv" "$SERVER_ARCH"
+  install_sx_package "Scalix server core" "server" "$SERVER_ARCH" "$DPKG_ARGS"
 
   export PATH=/opt/scalix/bin:$PATH
 
@@ -352,25 +398,25 @@ if [ -n "$SCALIX_SERVER_PACKAGES_EXISTS" ]; then
   sxconfig --set -t general.usrl_cn_rule='G S'
   sxconfig --set -t general.usrl_authid_rule='l@'
   sxconfig --set -t orniasys.name_part_1='"C" <S>' -t orniasys.domain_part_1="$LDOMAIN" # com
-  omaddmn -m $MNODE
+  omaddmn -m "$MNODE"
   omrc -n
   omadmidp -a -s 66000 -n 100
-  omaddu -n sxadmin/$MNODE --class limited -c admin -p "$admpwd" sxadmin
+  omaddu -n "sxadmin/$MNODE" --class limited -c admin -p "$admpwd" sxadmin
   omconfenu -n "sxadmin/$MNODE"
   omlimit -u "sxadmin/$MNODE" -o -i 0 -m 0
-  omaddu -n sxqueryadmin/$MNODE --class limited -c admin -p $ldappwd sxqueryadmin@$FQDN
-  omaddpdl -l ScalixUserAdmins/$MNODE
-  omaddpdl -l ScalixUserAttributesAdmins/$MNODE
-  omaddpdl -l ScalixGroupAdmins/$MNODE
-  omaddpdl -l ScalixAdmins/$MNODE
+  omaddu -n "sxqueryadmin/$MNODE" --class limited -c admin -p "$ldappwd" "sxqueryadmin@$FQDN"
+  omaddpdl -l "ScalixUserAdmins/$MNODE"
+  omaddpdl -l "ScalixUserAttributesAdmins/$MNODE"
+  omaddpdl -l "ScalixGroupAdmins/$MNODE"
+  omaddpdl -l "ScalixAdmins/$MNODE"
   omon -s all
 
 fi
 
-if [ -n "$SCALIX_TOMCAT_PACKAGES_EXISTS" ]; then
-  install "Tomcat Connector" "tomcat-connector" "all"
-  install "Scalix Tomcat " "tomcat_" "all"
-  install "All available web applications" 'mobile|res|swa|wireless|platform|sac|postgres|sis' "all"
+if [ -n "$SCALIX_TOMCAT_PACKAGE" ]; then
+  install_sx_package "Tomcat Connector" "tomcat-connector" "all"
+  install_sx_package "Scalix Tomcat " "tomcat_" "all"
+  install_sx_package "All available web applications" 'res swa wireless platform sac postgres sis' "all"
   if [ -d "/opt/scalix-postgres/bin" ]; then
     export PATH=/opt/scalix-postgres/bin:$PATH
   fi
@@ -383,10 +429,10 @@ echo "Configuring scalix-postgres"
 if [ -d "/opt/scalix-postgres/bin" ]; then
     read -s -p "Please enter a password for the db user? " dbpwd
     echo
-    sxpsql-setpwd $dbpwd
-    echo $dbpwd > "$base/caa/scalix.res/config/psdata"
+    sxpsql-setpwd "$dbpwd"
+    echo "$dbpwd" > "$base/caa/scalix.res/config/psdata"
     get_external_ip
-    sxpsql-whitelist $EXTERNAL_IP
+    sxpsql-whitelist "$EXTERNAL_IP"
 fi
 
 echo "Setting up settings for web applications"
@@ -395,10 +441,10 @@ files="$base/webmail/swa.properties \
        $base/caa/scalix.res/config/ubermanager.properties \
        $base/res/config/res.properties \
        $base/platform/platform.properties \
-       $base/mobile/mobile.properties \
        $base/sis/sis.properties \
        $base/caa/config/krblogin.conf \
-       $base/res/config/krblogin.conf"
+       $base/res/config/krblogin.conf \
+       $base/wireless/wireless.properties"
 
 for file in $files; do
   sed -e "s;%LOCALDOMAIN%;$LDOMAIN;g" \
@@ -433,8 +479,9 @@ for file in $files; do
       -e "s;%INDEX-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
       -e "s;%SEARCH-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
       -e "s;%INDEXADMIN-WHITELIST%;$EXTERNAL_IP,127.0.0.1;g" \
-      $file > $file.neu
-  mv $file.neu $file
+      "$file" > "$file.neu"
+  cp -rf "$file"  "$file$(date +%F_%R_%S)"
+  mv "$file.neu" "$file"
   email_domain=$(grep swa.email.domain "$base/webmail/swa.properties")
   if [ -z "$email_domain" ]; then
     echo "swa.email.domain=$FQDN" >> "$base/webmail/swa.properties"
@@ -442,6 +489,15 @@ for file in $files; do
 
 done
 
+if dpkg-query -l scalix-sac | grep -q ii ;
+then
+    use_https_for_webapp "Scalix Administration console", 'sac'
+fi
+
+if dpkg-query -l scalix-swa | grep -q ii ;
+then
+    use_https_for_webapp "Scalix Web Access", 'webmail'
+fi
 
 echo "Running sxmkindex: redirecting output to /var/log/sxmkindex.log"
 nohup nice -n 10 sxmkindex -r 0 > /var/log/sxmkindex.log 2>&1 &
@@ -479,7 +535,6 @@ cat << EOF
 #
 # Admin Console: http://$FQDN/sac
 # Webmail:       http://$FQDN/webmail
-# Mobile Client: http://$FQDN/m
 # API:           http://$FQDN/api/dav
 #
 ############################################################
