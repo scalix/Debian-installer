@@ -8,9 +8,9 @@ Scalix Installer for Debian 7( Wheezy), Ubuntu 13.04 and 14.04
 2. at least 600Mb of RAM.
 3. 300Mb free space on  hard drive.
 4. valid FQDN hostname. [Fully qualified domain name(FQDN)][1]
-5. Oracle Java runtime environment(minimal version 1.6, maximum version 1.8.X). JRE from IBM is not supported. Scalix does not support openJDK on production servers, however it is possible to use openJDK on low-load non-production installations.  Please visit wiki page [Working with JRE][2]  for more details about Java/JDK and Scalix.
+5. Oracle Java runtime environment(minimal version 1.6, maximum version 1.8.X). JRE from IBM is not supported. Scalix does not support openJDK on production servers, however it is possible to use openJDK on low-load non-production installations.
 
-For more information please visit [Manual Installation][3].
+Step be step how to install scalix on debian [How to: Install Scalix on Debian][2].
 
 ### Installer arguments ###
 1. --purge - removes Scalix from your system and deletes all associated data.
@@ -38,5 +38,4 @@ otherwise (under root user)
 All necessary dependencies will be automatically checked and you must just confirm to install them.
 
   [1]: http://en.wikipedia.org/wiki/Fully_qualified_domain_name
-  [2]: http://scalix.com/wiki/index.php?title=HowTos/Working_with_JRE
-  [3]: http://www.scalix.com/wiki/index.php?title=Manual_Installation
+  [2]: https://www.flomain.de/2015/07/how-to-install-scalix-on-debian/
