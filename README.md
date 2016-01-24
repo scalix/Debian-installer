@@ -12,6 +12,8 @@ Scalix Installer for Debian 7( Wheezy), Ubuntu 13.04 and 14.04
 
 Step be step how to install scalix on debian [How to: Install Scalix on Debian][2].
 
+[Scalix-Web-application-performance-tuning](/Debian-installer/wiki/Scalix-Web-application-performance-tuning)
+
 ### Installer arguments ###
 1. --purge - removes Scalix from your system and deletes all associated data.
 
