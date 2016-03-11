@@ -45,12 +45,13 @@ LDOMAIN=$(hostname -d)
 HOST=$(hostname)
 FQDN=$(hostname -f)
 SHORT=${HOST:0:1}${HOST: -1:1}
-MNODE=$(uname -n)
+NETWORK_NODE=$(uname -n)
 RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
 FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
 DIST_VERSION=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
 SERVER_ARCH="deb$DIST_VERSION"
 
+MNODE=(${NETWORK_NODE//./ })
 
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
@@ -156,6 +157,43 @@ then
     echo -e "Ip addresses for machine interfaces (except localhost ip):\n$IF_IPS"
     exit 4
 fi
+
+
+function ask_for_mail_node_name() {
+    read -p "What should be the name of your primary mail node? " MNODE
+    if [ -z $MNODE ]; then
+        echo "Mail node name is empty please provide valid mail node name"
+        ask_for_mail_node_name
+    fi
+    if [[ $MNODE = *.* ]]; then
+        echo "Mail node name '$MNODE' contains a dot, which is an invalid character"
+        ask_for_mail_node_name
+    fi
+}
+
+function config_mail_node_name() {
+    if [[ $MNODE = *.* ]]; then
+        echo "Current mail node name '$MNODE' contains a dot, which is an invalid character"
+        ask_for_mail_node_name
+    fi
+    if [ -z $MNODE ]; then
+        ask_for_mail_node_name
+    else
+        while true; do
+            read -p "Do you whant to use '$MNODE' as your primary mail node name ( yes / no ) ?" yn
+            case $yn in
+                [Yy]* )
+                    break
+                ;;
+                [Nn]* ) 
+                    ask_for_mail_node_name
+                    break
+                ;;
+                * ) echo "Please answer yes or no.";;
+            esac
+        done
+    fi
+}
 
 # get real path
 function realpath() {
@@ -339,7 +377,6 @@ function install_sx_package() {
 
 check_package_dir "$PACKAGES_DIR"
 
-
 echo "Force add i386 architecture if needed"
 dpkg_add_i386_arch
 
@@ -396,6 +433,8 @@ Y
   echo
   read -s -p "Please enter a password for the ldap query user? " ldappwd
   echo
+  #configure mail node name
+  config_mail_node_name
 
   #configure scalix server core
   echo "Configuring scalix server"
