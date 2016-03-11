@@ -277,6 +277,7 @@ function collect_dependencies_from_package() {
     local PKG=$1
     local OIFS=$IFS # store old IFS in buffer
     IFS=','
+    echo "Collecting dependencies for $PKG"
     for section in 'Depends' 'Pre-Depends' ; do
         for item in $(dpkg -f "$PKG" $section) ; do
             dependency=$(echo "$item" | awk '{ printf $1 }')
@@ -310,7 +311,7 @@ function collect_dependencies() {
         DEPENDENCIES="$DEPENDENCIES default-jdk"
       fi
 
-      if ! dpkg-query -l apache2 | grep -q ii;
+      if ! dpkg-query -l apache2 2>&1 | grep -q ii;
       then
         DEPENDENCIES="$DEPENDENCIES apache2"
       fi
@@ -360,7 +361,8 @@ if [ -n "$DEPENDENCIES" ]; then
   fi
   echo "We need to insure that all dependencies are installed"
   echo
-  $APT_CMD install $DEPENDENCIES openssh-server
+  echo "$DEPENDENCIES"
+  $APT_CMD install $DEPENDENCIES
 fi
 
 
