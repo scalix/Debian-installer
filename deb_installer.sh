@@ -33,7 +33,7 @@ fi
 DEPENDENCIES=""
 SCALIX_SERVER_PACKAGE=""
 SCALIX_TOMCAT_PACKAGE=""
-SERVER_ARCH="deb7"
+
 DPKG_ARGS=""
 PACKAGES_DIR="$PWD"
 EXTERNAL_IP=""
@@ -48,6 +48,9 @@ SHORT=${HOST:0:1}${HOST: -1:1}
 MNODE=$(uname -n)
 RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
 FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
+DIST_VERSION=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
+SERVER_ARCH="deb$DIST_VERSION"
+
 
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
@@ -69,12 +72,11 @@ echo "System platform: $RELEASE_NAME"
 INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk '{ printf $2 " " }')
 
 if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
-    ubuntu_version=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
-    if [ "$ubuntu_version" -lt 13 ]; then
+    if [ "$DIST_VERSION" -lt 13 ]; then
         echo "Unfortunately this release of Ubuntu ($RELEASE_NAME) is not supported"
         exit 1
     fi
-    SERVER_ARCH="ubuntu$ubuntu_version"
+    SERVER_ARCH="ubuntu$DIST_VERSION"
 fi
 
 function remove_scalix() {
@@ -336,11 +338,12 @@ function install_sx_package() {
 
 check_package_dir "$PACKAGES_DIR"
 
-collect_dependencies "$PACKAGES_DIR"
-
 
 echo "Force add i386 architecture if needed"
 dpkg_add_i386_arch
+
+collect_dependencies "$PACKAGES_DIR"
+
 
 if [ -n "$DEPENDENCIES" ]; then
   echo "Before installing Scalix you must install following dependencies"
