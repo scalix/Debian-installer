@@ -467,20 +467,25 @@ if [ -n "$SCALIX_TOMCAT_PACKAGE" ]; then
   export PATH=/opt/scalix-tomcat/bin:$PATH
 fi
 
-base="/var/opt/scalix/$SHORT"
+
 dbpwd=""
 echo "Configuring scalix-postgres"
 if [ -d "/opt/scalix-postgres/bin" ]; then
     read -s -p "Please enter a password for the db user? " dbpwd
     echo
     sxpsql-setpwd "$dbpwd"
-    echo "$dbpwd" > "$base/caa/scalix.res/config/psdata"
+    
     get_external_ip
     sxpsql-whitelist "$EXTERNAL_IP"
 fi
 
+base=$(realpath "$(sxtomcat-get-inst-dir)/../")
+if [ -d '$base/caa/scalix.res/config' -a -n $dbpwd ]; then
+    echo "$dbpwd" > "$base/caa/scalix.res/config/psdata"
+fi
+
 echo "Setting up settings for web applications"
-base="/var/opt/scalix/$SHORT"
+
 files="$base/webmail/swa.properties \
        $base/caa/scalix.res/config/ubermanager.properties \
        $base/res/config/res.properties \
