@@ -480,7 +480,7 @@ if [ -d "/opt/scalix-postgres/bin" ]; then
 fi
 
 base=$(realpath "$(sxtomcat-get-inst-dir)/../")
-if [ -d '$base/caa/scalix.res/config' -a -n $dbpwd ]; then
+if [ -d "$base/caa/scalix.res/config" ]; then
     echo "$dbpwd" > "$base/caa/scalix.res/config/psdata"
 fi
 
