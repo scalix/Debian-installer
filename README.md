@@ -1,10 +1,10 @@
 Debian-installer
 ================
 
-Scalix Installer for Debian 7/8, Ubuntu 14.04 and 15.04
+Scalix Installer for Debian 7, Ubuntu 14.04
 
 ### Requiments ###
-1. Debian 7/8, Ubuntu 14.04 or 15.04 (i386, x86_64).
+1. Debian 7, Ubuntu 14.04 (i386, x86_64).
 2. at least 600Mb of RAM.
 3. 300Mb free space on  hard drive.
 4. valid FQDN hostname. [Fully qualified domain name(FQDN)][1]
