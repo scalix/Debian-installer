@@ -42,16 +42,15 @@ SX_WEB_CLIENT_CONF="scalix-web-client.conf"
 
 KERNEL_VERSION=$(uname -v)
 LDOMAIN=$(hostname -d)
-HOST=$(hostname)
+SHORT_HOSTNAME=$(hostname -s)
 FQDN=$(hostname -f)
-SHORT=${HOST:0:1}${HOST: -1:1}
-NETWORK_NODE=$(uname -n)
+SHORT=${SHORT_HOSTNAME:0:1}${SHORT_HOSTNAME: -1:1}
 RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
 FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
 DIST_VERSION=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
 SERVER_ARCH="deb$DIST_VERSION"
 
-MNODE=(${NETWORK_NODE//./ })
+MNODE=(${SHORT_HOSTNAME//./ })
 
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
@@ -574,6 +573,7 @@ sleep 1
 echo "Starting apache server"
 service apache2 start
 
+echo "export PATH=\$PATH:/opt/scalix/bin:/opt/scalix/diag:/opt/scalix-tomcat/bin:/opt/scalix-postgres/bin" > /etc/profile.d/scalixpathscript.sh
 cat << EOF
 
 ############################################################
