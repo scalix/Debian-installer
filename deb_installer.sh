@@ -46,7 +46,7 @@ SHORT_HOSTNAME=$(hostname -s)
 FQDN=$(hostname -f)
 SHORT=${SHORT_HOSTNAME:0:1}${SHORT_HOSTNAME: -1:1}
 RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
-FQDN_PATTERN='(?=^.{1,254}$)(^(?:(?!\d+\.|-)[a-zA-Z0-9_\-]{2,63}(?<!-)\.?){2,3}(?:[a-zA-Z]{2,})$)'
+FQDN_PATTERN='(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.){2,}+[a-zA-Z]{2,}$)'
 DIST_VERSION=$(lsb_release -r | grep '[0-9]' | awk '{ print int($2); }')
 SERVER_ARCH="deb$DIST_VERSION"
 
