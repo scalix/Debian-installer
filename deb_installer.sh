@@ -401,6 +401,16 @@ if [ -n "$DEPENDENCIES" ]; then
   $APT_CMD install $DEPENDENCIES
 fi
 
+# check java version
+JAVA_VERSION=`$(type -P java) -version 2>&1 | awk -F '\"' '/version/ {print $2}'`
+if [[ ! "$JAVA_VERSION" =~ ^(1\.[8|9])|9(.*)$ ]];
+then
+    echo "It seems that you are using not supported JRE."
+    echo "We determined that current JRE version is : '$JAVA_VERSION'"
+    echo -e "We tried to install 'default-jdk' but it seems that its \nprovides lower version that we require."
+    echo "Please install JRE 1.8 or 1.9 manually. "
+    exit 124
+fi
 
 if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
 
