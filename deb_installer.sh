@@ -571,7 +571,7 @@ Y
   omaddpdl -l "ScalixAdmins/$MNODE"
   omon -s all
   
-  local instance_dir="$(omcheckgc -d)"
+  instance_dir="$(omcheckgc -d)"
 
   add_server_tweaks "$instance_dir/s/sys/general.cfg" "$UAL_SIGNON_TWEAK_HELP_TEXT" "${UAL_SIGNON_TWEAKS[@]}"
   add_server_tweaks "$instance_dir/s/sys/general.cfg" "$CDA_TWEAK_HELP_TEXT" "${CDA_TWEAKS[@]}"
