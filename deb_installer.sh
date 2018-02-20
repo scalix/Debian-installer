@@ -52,6 +52,92 @@ SERVER_ARCH="deb$DIST_VERSION"
 
 MNODE=(${SHORT_HOSTNAME//./ })
 
+UAL_SIGNON_TWEAKS=(
+    "UAL_SIGNON_ALIAS=YES"
+    "UAL_SIGNON_ALIAS_CONFIG=SYS"
+    "UAL_USE_SIGNON_ALIAS=FALSE"
+)
+UAL_SIGNON_TWEAK_HELP_TEXT=$(cat <<-EOF
+# These three tweaks allow users to signon using an alias. Only
+# system-defined aliases are permitted and it the alias name is ignored
+# for the purposes of message creation and so on.
+# Note that changing these settings normally requires Scalix to be
+# restarted.
+EOF
+)
+
+CDA_TWEAKS=('CDA_USE_CHANGE_LOG=TRUE')
+CDA_TWEAK_HELP_TEXT=$(cat <<-EOF
+# The CDA service (used for "type down" in some clients) is more
+# efficient if it can check the directory change log before attempting
+# to update the access tables that it uses.   One slow machines, it may
+# also be worth uncommenting the CDA_CHECKTIME tweak to reduce the check
+# interval from five minutes to an hour.
+# CDA_CHECKTIME=60
+EOF
+)
+
+IMAP_CONN_TWEAKS=("IMAP_CONNRATE_LIMIT=10" "IMAP_CONNECTION_LIMIT=500")
+IMAP_CONN_TWEAKS_HELP_TEXT=$(cat <<-EOF
+# These tweaks limit the number and rate of IMAP connections to the
+# server. The IMAP_CONNECTION_LIMIT simply restricts the total number of
+# connections to the server -- note that many IMAP clients have several
+# connections for each IMAP session. The IMAP_CONNRATE_LIMIT restricts
+# the rate at which clients can connect to the server, in this case, at
+# most ten connections per second; if clients try to connect faster
+# than that, the IMAP server simply slows down the rate at which it will
+# accept new connections.
+EOF
+)
+
+IMAP_IDLE_TWEAKS=("IMAP_IDLE_TIMEOUT=31")
+IMAP_IDLE_TWEAKS_HELP_TEXT=$(cat <<-EOF
+# The IMAP_IDLE_TIMEOUT tweak is the maximum time an IMAP connection
+# will wait for a command before terminating the connection. The default
+# setting, and the minimum required setting, is thirty minutes. Some
+# clients will "refresh" their connection once every thirty minutes
+# exactly -- but if they are a little bit late, the server drops their
+# connection. Setting a timeout of 31 minutes avoids this problem.
+EOF
+)
+
+
+LD_MSG_STORE_TWEAKS=("LD_CREATE_MESSAGE_STORE=TRUE")
+LD_MSG_STORE_TWEAKS_HELP_TEXT=$(cat <<-EOF
+# This tweak arranges for Local Delivery to automatically create a
+# message store for users who have been created without one.
+# Users who have been added using the bulk-add mechanism used by the
+# wizard will not have a message store and so setting this tweak allows
+# them to receive mail before they have been signed on initially.
+EOF
+)
+
+MAX_SIGNON_TWEAKS=("MAX_SIGNON_PER_USER=54")
+MAX_SIGNON_TWEAKS_HELP_TEXT=$(cat <<-EOF
+# The maximum number of session monitor signon's per user e.g.
+# the Core server, a satellite plus an Outlook session would count as 3
+EOF
+)
+
+INDEXER_TWEAKS=(
+    "IDX_DEBUG_LOG=false"
+    "IDX_MINLOAD=4.0"
+    "IDX_MAXLOAD=8.0"
+    "INDEX_BROWSE_NICE=5"
+
+)
+INDEXER_TWEAKS_HELP_TEXT=$(cat <<-EOF
+# indexer tweaks .
+# IDX_DEBUG_LOG - enable or disable (by default) logging to file.
+# The IDX_MAXLOAD setting will stop the indexer from indexing
+# any further messages when the per-CPU load average goes above
+# the defined value. The indexer will not resume indexing until the per-CPU
+# load average goes below the value defined by IDX_MINLOAD.
+# INDEX_BROWSE_NICE - sets it's running priority (nice value) for indexer
+# process
+EOF
+)
+
 APT_CMD=$(type -P aptitude)
 if [ -z "$APT_CMD" ]; then
   $(type -P apt-get) install aptitude
@@ -270,6 +356,27 @@ function valid_ip()
     return $stat
 }
 
+function add_server_tweaks() {
+    local help_added=false
+    local filename=$1
+    shift
+    local help_text=$1
+    shift
+    local options=("$@")
+    for option in "${options[@]}"
+    do
+        local option_name="$(cut -d'=' -f1 <<<"$option")"
+        if ! grep -q "^[[:blank:]]$option_name\|^$option_name" "$filename" ; then
+            if [ "$help_added" = false ] ; then
+                echo -e "\n$help_text" >> "$filename"
+                help_added=true
+            fi
+            echo -e "$option" >> "$filename"
+        fi
+
+    done
+}
+
 function use_https_for_webapp() {
     while true; do
         read -p "Do you whant to use secure connection HTTPS instead HTTP for $1 ( yes / no ) ?" yn
@@ -463,6 +570,16 @@ Y
   omaddpdl -l "ScalixGroupAdmins/$MNODE"
   omaddpdl -l "ScalixAdmins/$MNODE"
   omon -s all
+  
+  local instance_dir="$(omcheckgc -d)"
+
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$UAL_SIGNON_TWEAK_HELP_TEXT" "${UAL_SIGNON_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$CDA_TWEAK_HELP_TEXT" "${CDA_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$IMAP_CONN_TWEAKS_HELP_TEXT" "${IMAP_CONN_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$IMAP_IDLE_TWEAKS_HELP_TEXT" "${IMAP_CONN_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$LD_MSG_STORE_TWEAKS_HELP_TEXT" "${LD_MSG_STORE_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$MAX_SIGNON_TWEAKS_HELP_TEXT" "${MAX_SIGNON_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$INDEXER_TWEAKS_HELP_TEXT" "${INDEXER_TWEAKS[@]}"
 
 fi
 
