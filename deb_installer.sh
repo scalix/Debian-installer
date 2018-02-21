@@ -573,13 +573,13 @@ Y
   
   instance_dir="$(omcheckgc -d)"
 
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$UAL_SIGNON_TWEAK_HELP_TEXT" "${UAL_SIGNON_TWEAKS[@]}"
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$CDA_TWEAK_HELP_TEXT" "${CDA_TWEAKS[@]}"
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$IMAP_CONN_TWEAKS_HELP_TEXT" "${IMAP_CONN_TWEAKS[@]}"
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$IMAP_IDLE_TWEAKS_HELP_TEXT" "${IMAP_CONN_TWEAKS[@]}"
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$LD_MSG_STORE_TWEAKS_HELP_TEXT" "${LD_MSG_STORE_TWEAKS[@]}"
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$MAX_SIGNON_TWEAKS_HELP_TEXT" "${MAX_SIGNON_TWEAKS[@]}"
-  add_server_tweaks "$instance_dir/s/sys/general.cfg" "$INDEXER_TWEAKS_HELP_TEXT" "${INDEXER_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$UAL_SIGNON_TWEAK_HELP_TEXT" "${UAL_SIGNON_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$CDA_TWEAK_HELP_TEXT" "${CDA_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$IMAP_CONN_TWEAKS_HELP_TEXT" "${IMAP_CONN_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$IMAP_IDLE_TWEAKS_HELP_TEXT" "${IMAP_CONN_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$LD_MSG_STORE_TWEAKS_HELP_TEXT" "${LD_MSG_STORE_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$MAX_SIGNON_TWEAKS_HELP_TEXT" "${MAX_SIGNON_TWEAKS[@]}"
+  add_server_tweaks "$instance_dir/sys/general.cfg" "$INDEXER_TWEAKS_HELP_TEXT" "${INDEXER_TWEAKS[@]}"
 
 fi
 
