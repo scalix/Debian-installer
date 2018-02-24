@@ -451,7 +451,7 @@ function collect_dependencies() {
                 echo "It seems that your system does not have installed and configured Message(Mail) Transfer Agent (MTA)."
                 echo "We can install sendmail and configure it for you. But you can skip sendmail installation and "
                 echo "set up Postfix manually following this rules LINK_TO_WIKI"
-                read -p "Do you whant to install Sendmail and automatically configure it to work with scalix? ( yes / no ) ?" yn
+                read -p "Do you want to install Sendmail and automatically configure it to work with scalix? ( yes / no ) ?" yn
                 case $yn in
                     [Yy]* )
                         DEPENDENCIES="$DEPENDENCIES libmilter1.0.1:i386 sendmail:all sendmail-cf:all"
