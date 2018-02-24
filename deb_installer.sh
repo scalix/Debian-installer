@@ -446,6 +446,24 @@ function collect_dependencies_from_package() {
 function collect_dependencies() {
     SCALIX_SERVER_PACKAGE=$(find_sx_package "server")
     if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+        if [ ! -d /opt/scalix/bin -a "$(lsof -i :25 | wc -l)" -le 0 ]; then
+            while true; do
+                echo "It seems that your system does not have installed and configured Message(Mail) Transfer Agent (MTA)."
+                echo "We can install sendmail and configure it for you. But you can skip sendmail installation and "
+                echo "set up Postfix manually following this rules LINK_TO_WIKI"
+                read -p "Do you whant to install Sendmail and automatically configure it to work with scalix? ( yes / no ) ?" yn
+                case $yn in
+                    [Yy]* )
+                        DEPENDENCIES="$DEPENDENCIES libmilter1.0.1:i386 sendmail:all sendmail-cf:all"
+                        break
+                    ;;
+                    [Nn]* )
+                        break
+                    ;;
+                    * ) echo "Please answer yes(y) or no(n).";;
+                esac
+            done
+        fi
         collect_dependencies_from_package "$SCALIX_SERVER_PACKAGE"
     fi
 
@@ -700,7 +718,10 @@ sleep 1
 echo "Starting apache server"
 service apache2 start
 
-echo "export PATH=\$PATH:/opt/scalix/bin:/opt/scalix/diag:/opt/scalix-tomcat/bin:/opt/scalix-postgres/bin" > /etc/profile.d/scalixpathscript.sh
+SCALIX_PATH="export PATH=\$PATH:/opt/scalix/bin:/opt/scalix/diag:/opt/scalix-tomcat/bin:/opt/scalix-postgres/bin"
+echo $SCALIX_PATH > /etc/profile.d/scalixpathscript.sh
+echo $SCALIX_PATH > /root/.profile
+eval $SCALIX_PATH
 cat << EOF
 
 ############################################################
