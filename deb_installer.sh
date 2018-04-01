@@ -528,12 +528,12 @@ fi
 
 # check java version
 JAVA_VERSION=`$(type -P java) -version 2>&1 | awk -F '\"' '/version/ {print $2}'`
-if [[ ! "$JAVA_VERSION" =~ ^(1\.[8|9])|9(.*)$ ]];
+if [[ ! "$JAVA_VERSION" =~ ^(1\.[8|9|10])|9(.*)|10(.*)$ ]];
 then
     echo "It seems that you are using not supported JRE."
     echo "We determined that current JRE version is : '$JAVA_VERSION'"
     echo -e "We tried to install 'default-jdk' but it seems that its \nprovides lower version that we require."
-    echo "Please install JRE 1.8 or 1.9 manually. "
+    echo "Please install JRE 1.8 or 10(1.10) manually. "
     exit 124
 fi
 
