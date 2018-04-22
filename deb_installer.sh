@@ -618,9 +618,10 @@ if [ -d "/opt/scalix-postgres/bin" ]; then
     read -s -p "Please enter a password for the db user? " dbpwd
     echo
     sxpsql-setpwd "$dbpwd"
-    
+
     get_external_ip
     sxpsql-whitelist "$EXTERNAL_IP"
+    sxpsql-reconfig
 fi
 
 base=$(realpath "$(sxtomcat-get-inst-dir)/../")
