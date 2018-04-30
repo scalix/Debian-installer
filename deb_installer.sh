@@ -446,6 +446,26 @@ function collect_dependencies_from_package() {
 function collect_dependencies() {
     SCALIX_SERVER_PACKAGE=$(find_sx_package "server")
     if [ -n "$SCALIX_SERVER_PACKAGE" ]; then
+        if [ -n "$(dpkg -l exim4 | grep ii)" ]; then
+            while true; do
+                echo "It seems that Exim4 is intalled at your system."
+                echo "Scalix does not support this MTA you need to remove it before installing scalix."
+                read -p "Do you want to remove Exim4? ( yes / no ) ?" yn
+                case $yn in
+                    [Yy]* )
+                        safety_exec "$APT_CMD purge exim*"
+                        # stop all services
+                        safety_exec "service exim4 stop"
+                        collect_dependencies
+                        break
+                    ;;
+                    [Nn]* )
+                        break
+                    ;;
+                    * ) echo "Please answer yes(y) or no(n).";;
+                esac
+            done
+        fi
         if [ ! -d /opt/scalix/bin -a "$(lsof -i :25 | wc -l)" -le 0 ]; then
             while true; do
                 echo "It seems that your system does not have installed and configured Message(Mail) Transfer Agent (MTA)."
@@ -458,6 +478,7 @@ function collect_dependencies() {
                         break
                     ;;
                     [Nn]* )
+                        DEPENDENCIES="$DEPENDENCIES postfix libsasl2-modules-ldap sasl2-bin"
                         break
                     ;;
                     * ) echo "Please answer yes(y) or no(n).";;
@@ -482,6 +503,13 @@ function collect_dependencies() {
     if [ -n "$sx_postgres" ]; then
       collect_dependencies_from_package "$sx_postgres"
     fi
+
+    if $x86_64; then
+        # debian
+        DEPENDENCIES=${DEPENDENCIES//mailutils:i386/mailutils}
+        DEPENDENCIES=${DEPENDENCIES//openssl:i386/openssl}
+    fi
+
 }
 
 # install scalix packages
