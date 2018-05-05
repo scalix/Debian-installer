@@ -453,9 +453,13 @@ function collect_dependencies() {
                 read -p "Do you want to remove Exim4? ( yes / no ) ?" yn
                 case $yn in
                     [Yy]* )
-                        safety_exec "$APT_CMD purge exim*"
+                        local _apt="$(type -p apt)"
+                        if [ -z "$_apt" ]; then
+                            _apt="$(type -p apt-get)"
+                        fi
+                        safety_exec "$_apt purge exim*"
                         # stop all services
-                        safety_exec "service exim4 stop"
+                        service exim4 stop
                         collect_dependencies
                         break
                     ;;
