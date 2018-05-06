@@ -138,11 +138,16 @@ INDEXER_TWEAKS_HELP_TEXT=$(cat <<-EOF
 EOF
 )
 
-APT_CMD=$(type -P aptitude)
+APT_CMD=$(type -P apt)
 if [ -z "$APT_CMD" ]; then
-  $(type -P apt-get) install aptitude
-  APT_CMD=$(type -P aptitude)
-  if [ -z "$APT_CMD" ]; then
+    APT_CMD=$(type -P apt-get)
+fi
+
+APTITUDE_CMD=$(type -P aptitude)
+if [ -z "$APTITUDE_CMD" ]; then
+  $APT_CMD install aptitude
+  APTITUDE_CMD=$(type -P aptitude)
+  if [ -z "$APTITUDE_CMD" ]; then
      echo "Could not find aptitude command."
      exit 127
   fi
@@ -154,6 +159,11 @@ if [ "$(uname -m)" == "x86_64" ]; then
 fi
 
 echo "System platform: $RELEASE_NAME"
+
+
+CONFIGURE_POSTFIX=false
+SMTP_PORT=25
+
 
 INSTALLED_PACKAGES=$(dpkg --list | grep scalix | awk '{ printf $2 " " }')
 
@@ -171,10 +181,10 @@ function remove_scalix() {
         echo "There are no installed packages to remove."
     else
         if [ -n "$(type -P apt-get)" ]; then
-            APT_CMD=$(type -P apt-get)
+            APTITUDE_CMD=$(type -P apt-get)
         fi
 
-        $APT_CMD purge $INSTALLED_PACKAGES || exit $?
+        $APTITUDE_CMD purge $INSTALLED_PACKAGES || exit $?
         echo "Clean up"
         rm -rf /var/opt/scalix
         rm -rf /etc/opt
@@ -312,7 +322,7 @@ function dpkg_add_i386_arch() {
   else
     dpkg --add-architecture i386
   fi
-  $APT_CMD update
+  $APTITUDE_CMD update
 }
 
 # check if package exists in folder
@@ -375,6 +385,61 @@ function add_server_tweaks() {
         fi
 
     done
+}
+
+
+function confiure_postfix() {
+    local sxqueryadmin_pwd=$1
+    if [ -z "$sxqueryadmin_pwd" ]; then
+        echo "Password for sxaquery admin is empty. Can not continue."
+        exit 3
+    fi
+    sxconfig --set -t smtpd.LISTEN='localhost:24'
+    SMTP_PORT=24
+    if [ ! -f /etc/postfix/main.cf ]; then
+        safety_exec "cp /usr/share/postfix/main.cf.debian /etc/postfix/main.cf"
+    fi
+    local postconf_edit_cmd="$(type -P postconf) -e"
+    local postmap_cmd=$(type -P postmap)
+    # listen on all interfaces and ports
+    safety_exec "$postconf_edit_cmd 'inet_interfaces = all'"
+    safety_exec "$postconf_edit_cmd 'inet_protocols = all'"
+    safety_exec "$postconf_edit_cmd 'parent_domain_matches_subdomains=debug_peer_list smtpd_access_maps'"
+
+    safety_exec "$postconf_edit_cmd 'relay_domains=$FQDN'"
+    safety_exec "$postconf_edit_cmd 'relay_recipient_maps=ldap:/etc/postfix/scalix_ldap_relay_recipient_maps.cf'"
+    if [ ! -f "/etc/postfix/scalix_ldap_relay_recipient_maps.cf" ]; then
+        cat > /etc/postfix/scalix_ldap_relay_recipient_maps.cf <<EOT
+server_host = ldap://localhost:389/
+search_base = o=Scalix
+version = 3
+bind_dn = cn=sxqueryadmin,o=scalix
+bind_pw = $sxqueryadmin_pwd
+query_filter = mail=%s
+result_attribute = mail
+
+EOT
+    fi
+    safety_exec "$postconf_edit_cmd 'transport_maps = hash:/etc/postfix/transport'"
+    if [ ! -f /etc/postfix/transport ]; then
+        echo "$FQDN $FQDN:24" > /etc/postfix/transport
+        safety_exec "$postmap_cmd /etc/postfix/transport"
+    fi
+
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_auth_enable = yes'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_local_domain = \$mydomain'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_security_options = noanonymous'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_path = smtpd'"
+    safety_exec "$postconf_edit_cmd 'broken_sasl_auth_clients = yes'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_authenticated_header = no'"
+    safety_exec "$postconf_edit_cmd 'smtpd_client_restrictions = permit_mynetworks        check_client_access hash:/etc/postfix/access       permit_sasl_authenticated        reject_unknown_client permit'"
+    if [ ! -f /etc/postfix/access ]; then
+        touch /etc/postfix/access
+        safety_exec "$postmap_cmd /etc/postfix/access"
+    fi
+    safety_exec "$postconf_edit_cmd 'smtpd_sender_restrictions = permit_mynetworks    permit_sasl_authenticated    reject_invalid_hostname      reject_non_fqdn_hostname     reject_non_fqdn_recipient  reject_non_fqdn_sender     reject_unknown_sender_domain   reject_unknown_recipient_domain     reject_unauth_destination permit'"
+    safety_exec "$postconf_edit_cmd 'smtpd_recipient_restrictions = permit_mynetworks    permit_sasl_authenticated    reject_unauth_destination'"
+    safety_exec "$postconf_edit_cmd 'compatibility_level = 2'"
 }
 
 function use_https_for_webapp() {
@@ -453,13 +518,9 @@ function collect_dependencies() {
                 read -p "Do you want to remove Exim4? ( yes / no ) ?" yn
                 case $yn in
                     [Yy]* )
-                        local _apt="$(type -p apt)"
-                        if [ -z "$_apt" ]; then
-                            _apt="$(type -p apt-get)"
-                        fi
-                        safety_exec "$_apt purge exim*"
+                        safety_exec "$APT_CMD purge exim*"
                         # stop all services
-                        service exim4 stop
+                        #service exim4 stop
                         collect_dependencies
                         break
                     ;;
@@ -482,7 +543,8 @@ function collect_dependencies() {
                         break
                     ;;
                     [Nn]* )
-                        DEPENDENCIES="$DEPENDENCIES postfix libsasl2-modules-ldap sasl2-bin"
+                        DEPENDENCIES="$DEPENDENCIES postfix libsasl2-modules-ldap sasl2-bin libsasl2-2 postfix-ldap"
+                        CONFIGURE_POSTFIX=true
                         break
                     ;;
                     * ) echo "Please answer yes(y) or no(n).";;
@@ -544,7 +606,7 @@ if [ -n "$DEPENDENCIES" ]; then
   echo
   echo "$DEPENDENCIES"
   echo
-  $APT_CMD install $DEPENDENCIES
+  $APTITUDE_CMD install $DEPENDENCIES
 
   error=$?
   if test $error -gt 0
@@ -555,7 +617,7 @@ if [ -n "$DEPENDENCIES" ]; then
   echo "We need to insure that all dependencies are installed"
   echo
   echo "$DEPENDENCIES"
-  $APT_CMD install $DEPENDENCIES
+  $APTITUDE_CMD install $DEPENDENCIES
 fi
 
 # check java version
@@ -619,6 +681,11 @@ Y
   omaddpdl -l "ScalixUserAttributesAdmins/$MNODE"
   omaddpdl -l "ScalixGroupAdmins/$MNODE"
   omaddpdl -l "ScalixAdmins/$MNODE"
+  CONFIGURE_POSTFIX=true
+  if $CONFIGURE_POSTFIX; then
+    confiure_postfix "$ldappwd"
+  fi
+  exit
   omon -s all
   
   instance_dir="$(omcheckgc -d)"
@@ -675,9 +742,9 @@ files="$base/webmail/swa.properties \
 for file in $files; do
   sed -e "s;%LOCALDOMAIN%;$LDOMAIN;g" \
       -e "s;%LOCALHOST%;$FQDN;g" \
-      -e "s;swa.platform.url=http://%PLATFORMURL%:8080/api;swa.platform.url=http://$FQDN/api;g" \
       -e "s;swa.platform.enabled=false;swa.platform.enabled=true;g" \
-      -e "s;%PLATFORMURL%;HTTP://$FQDN/API;g" \
+      -e "s;swa.email.smtpServer=$FQDN;swa.email.smtpServer=$FQDN:$SMTP_PORT;g" \
+      -e "s;%PLATFORMURL%;$FQDN;g" \
       -e "s;ubermanager.notification.listener.address=\*;ubermanager.notification.listener.address=$EXTERNAL_IP;g" \
       -e "s;__SECURED_MODE__;false;g" \
       -e "s;ubermanager/__FQHN_HOST__@__KERBEROS_REALM__;;g" \
@@ -698,7 +765,7 @@ for file in $files; do
       -e "s;localhost;$FQDN;g" \
       -e "s;%SIS-LANGUAGE%;English;g" \
       -e "s;%IMAPHOST%;$FQDN;g" \
-      -e "s;%SMTPHOST%;$FQDN;g" \
+      -e "s;%SMTPHOST%;$FQDN:$SMTP_PORT;g" \
       -e "s;%LDAPPORT%;389;g" \
       -e "s;%DBHOST%;$FQDN:5733;g" \
       -e "s;%DBPASSWD%;$dbpwd;g" \
