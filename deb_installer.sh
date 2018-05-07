@@ -44,6 +44,7 @@ KERNEL_VERSION=$(uname -v)
 LDOMAIN=$(hostname -d)
 SHORT_HOSTNAME=$(hostname -s)
 FQDN=$(hostname -f)
+SMTPHOST=$FQDN
 SHORT=${SHORT_HOSTNAME:0:1}${SHORT_HOSTNAME: -1:1}
 RELEASE_NAME=$(lsb_release -d | awk -F":" '{gsub(/^[ \t]+/, "", $2); gsub(/[ \t]+$/, "", $2); print $2 }')
 FQDN_PATTERN='(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.){2,}+[a-zA-Z]{2,}$)'
@@ -429,7 +430,7 @@ EOT
     fi
     safety_exec "$postconf_edit_cmd 'transport_maps = hash:/etc/postfix/transport'"
     if [ ! -f /etc/postfix/transport ]; then
-        echo "$FQDN $SMTPHOST:$SMTP_PORT" > /etc/postfix/transport
+        echo "$FQDN smtp:$SMTPHOST:$SMTP_PORT" > /etc/postfix/transport
         safety_exec "$postmap_cmd /etc/postfix/transport"
     fi
 
@@ -756,7 +757,7 @@ Y
   if $CONFIGURE_POSTFIX; then
     confiure_postfix "$ldappwd"
   fi
-  exit
+  
   omon -s all
   
   instance_dir="$(omcheckgc -d)"
@@ -814,7 +815,7 @@ for file in $files; do
   sed -e "s;%LOCALDOMAIN%;$LDOMAIN;g" \
       -e "s;%LOCALHOST%;$FQDN;g" \
       -e "s;swa.platform.enabled=false;swa.platform.enabled=true;g" \
-      -e "s;swa.email.smtpServer=$FQDN;swa.email.smtpServer=$FQDN:$SMTP_PORT;g" \
+      -e "s;swa.email.smtpServer=$FQDN;swa.email.smtpServer=$SMTPHOST:$SMTP_PORT;g" \
       -e "s;%PLATFORMURL%;$FQDN;g" \
       -e "s;ubermanager.notification.listener.address=\*;ubermanager.notification.listener.address=$EXTERNAL_IP;g" \
       -e "s;__SECURED_MODE__;false;g" \
@@ -836,7 +837,7 @@ for file in $files; do
       -e "s;localhost;$FQDN;g" \
       -e "s;%SIS-LANGUAGE%;English;g" \
       -e "s;%IMAPHOST%;$FQDN;g" \
-      -e "s;%SMTPHOST%;$FQDN:$SMTP_PORT;g" \
+      -e "s;%SMTPHOST%;$SMTPHOST:$SMTP_PORT;g" \
       -e "s;%LDAPPORT%;389;g" \
       -e "s;%DBHOST%;$FQDN:5733;g" \
       -e "s;%DBPASSWD%;$dbpwd;g" \
