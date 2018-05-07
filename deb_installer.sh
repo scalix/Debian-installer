@@ -394,20 +394,27 @@ function confiure_postfix() {
         echo "Password for sxaquery admin is empty. Can not continue."
         exit 3
     fi
-    sxconfig --set -t smtpd.LISTEN='localhost:24'
+    
+    SMTPHOST='localhost'
     SMTP_PORT=24
-    if [ ! -f /etc/postfix/main.cf ]; then
+    sxconfig --set -t smtpd.LISTEN=$SMTPHOST:$SMTP_PORT
+    #if [ ! -f /etc/postfix/main.cf ]; then
         safety_exec "cp /usr/share/postfix/main.cf.debian /etc/postfix/main.cf"
-    fi
+    #fi
+    
     local postconf_edit_cmd="$(type -P postconf) -e"
     local postmap_cmd=$(type -P postmap)
+    safety_exec "$postconf_edit_cmd 'compatibility_level = 2'"
     # listen on all interfaces and ports
-    safety_exec "$postconf_edit_cmd 'inet_interfaces = all'"
-    safety_exec "$postconf_edit_cmd 'inet_protocols = all'"
-    safety_exec "$postconf_edit_cmd 'parent_domain_matches_subdomains=debug_peer_list smtpd_access_maps'"
+    safety_exec "$postconf_edit_cmd 'inet_interfaces = all'"
+    safety_exec "$postconf_edit_cmd 'inet_protocols = all'"
+    safety_exec "$postconf_edit_cmd \"parent_domain_matches_subdomains= \
+            debug_peer_list \
+            smtpd_access_maps\""
 
-    safety_exec "$postconf_edit_cmd 'relay_domains=$FQDN'"
-    safety_exec "$postconf_edit_cmd 'relay_recipient_maps=ldap:/etc/postfix/scalix_ldap_relay_recipient_maps.cf'"
+    safety_exec "$postconf_edit_cmd 'relay_domains=$FQDN'"
+    safety_exec "$postconf_edit_cmd 'relay_recipient_maps=ldap:/etc/postfix/scalix_ldap_relay_recipient_maps.cf'"
+    
     if [ ! -f "/etc/postfix/scalix_ldap_relay_recipient_maps.cf" ]; then
         cat > /etc/postfix/scalix_ldap_relay_recipient_maps.cf <<EOT
 server_host = ldap://localhost:389/
@@ -420,26 +427,90 @@ result_attribute = mail
 
 EOT
     fi
-    safety_exec "$postconf_edit_cmd 'transport_maps = hash:/etc/postfix/transport'"
+    safety_exec "$postconf_edit_cmd 'transport_maps = hash:/etc/postfix/transport'"
     if [ ! -f /etc/postfix/transport ]; then
-        echo "$FQDN $FQDN:24" > /etc/postfix/transport
+        echo "$FQDN $SMTPHOST:$SMTP_PORT" > /etc/postfix/transport
         safety_exec "$postmap_cmd /etc/postfix/transport"
     fi
 
-    safety_exec "$postconf_edit_cmd 'smtpd_sasl_auth_enable = yes'"
-    safety_exec "$postconf_edit_cmd 'smtpd_sasl_local_domain = \$mydomain'"
-    safety_exec "$postconf_edit_cmd 'smtpd_sasl_security_options = noanonymous'"
-    safety_exec "$postconf_edit_cmd 'smtpd_sasl_path = smtpd'"
-    safety_exec "$postconf_edit_cmd 'broken_sasl_auth_clients = yes'"
-    safety_exec "$postconf_edit_cmd 'smtpd_sasl_authenticated_header = no'"
-    safety_exec "$postconf_edit_cmd 'smtpd_client_restrictions = permit_mynetworks        check_client_access hash:/etc/postfix/access       permit_sasl_authenticated        reject_unknown_client permit'"
-    if [ ! -f /etc/postfix/access ]; then
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_auth_enable = yes'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_local_domain = \$mydomain'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_security_options = noanonymous'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_path = smtpd'"
+    safety_exec "$postconf_edit_cmd 'broken_sasl_auth_clients = yes'"
+    safety_exec "$postconf_edit_cmd 'smtpd_sasl_authenticated_header = no'"
+
+    if [ ! -f /etc/postfix/sasl/smtpd.conf ]; then
+        cat > /etc/postfix/sasl/smtpd.conf <<EOT
+pwcheck_method: saslauthd
+mech_list: plain login
+
+EOT
+    fi
+
+    echo "Configuring SaslAuthD"
+    sed -i 's/START=no/START=yes/g' /etc/default/saslauthd
+    sed -i 's/MECHANISMS="pam"/MECHANISMS="ldap"/g' /etc/default/saslauthd
+    sed -i 's;OPTIONS="-c -m /var/run/saslauthd";OPTIONS="-c -m /var/spool/postfix/var/run/saslauthd";g' /etc/default/saslauthd
+
+    #  we update the dpkg "state" of /var/spool/postfix/var/run/saslauthd.
+    # The saslauthd init script uses this setting to create the missing directory with the appropriate permissions and ownership:
+    dpkg-statoverride --force --update --add root sasl 755 /var/spool/postfix/var/run/saslauthd
+
+
+    if [ ! -f /etc/saslauthd ]; then
+        ln -s /etc/default/saslauthd /etc/saslauthd
+    fi
+
+    if [ ! -f /etc/saslauthd.conf ]; then
+        cat > /etc/saslauthd.conf <<EOT
+ldap_servers: ldap://localhost:389/
+ldap_search_base: o=Scalix
+ldap_auth_method: bind
+ldap_filter: (|(omUlAuthid=%u)(mail=%u)(mail=%u@%r))
+ldap_version: 3
+ldap_bind_dn: cn=sxqueryadmin,o=scalix
+ldap_bind_pw: $sxqueryadmin_pwd
+
+EOT
+
+    fi
+    
+    echo "We have configure saslauth for you \n"
+    echo "you may check it by exectuting following command\n"
+    echo "$ testsaslauthd -u sxadmin -p PSWD -f /var/spool/postfix/var/run/saslauthd/mux"
+    service saslauthd restart
+    echo
+
+
+    safety_exec "$postconf_edit_cmd \"smtpd_client_restrictions = \
+        permit_mynetworks \
+        check_client_access hash:/etc/postfix/access \
+        permit_sasl_authenticated \
+        reject_unknown_client \
+        permit\""
+
+    if [ ! -f /etc/postfix/access ]; then
         touch /etc/postfix/access
         safety_exec "$postmap_cmd /etc/postfix/access"
     fi
-    safety_exec "$postconf_edit_cmd 'smtpd_sender_restrictions = permit_mynetworks    permit_sasl_authenticated    reject_invalid_hostname      reject_non_fqdn_hostname     reject_non_fqdn_recipient  reject_non_fqdn_sender     reject_unknown_sender_domain   reject_unknown_recipient_domain     reject_unauth_destination permit'"
-    safety_exec "$postconf_edit_cmd 'smtpd_recipient_restrictions = permit_mynetworks    permit_sasl_authenticated    reject_unauth_destination'"
-    safety_exec "$postconf_edit_cmd 'compatibility_level = 2'"
+
+    safety_exec "$postconf_edit_cmd \"smtpd_sender_restrictions = \
+            permit_mynetworks \
+            permit_sasl_authenticated \
+            reject_invalid_hostname \
+            reject_non_fqdn_hostname \
+            reject_non_fqdn_recipient \
+            reject_non_fqdn_sender \
+            reject_unknown_sender_domain \
+            reject_unknown_recipient_domain \
+            reject_unauth_destination \
+            permit\""
+    safety_exec "$postconf_edit_cmd \"smtpd_recipient_restrictions = \
+            permit_mynetworks \
+            permit_sasl_authenticated \
+            reject_unauth_destination\""
+    
 }
 
 function use_https_for_webapp() {
