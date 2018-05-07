@@ -396,12 +396,12 @@ function confiure_postfix() {
         exit 3
     fi
     
-    SMTPHOST='localhost'
-    SMTP_PORT=24
+    export SMTPHOST='localhost'
+    export SMTP_PORT=24
     sxconfig --set -t smtpd.LISTEN=$SMTPHOST:$SMTP_PORT
-    #if [ ! -f /etc/postfix/main.cf ]; then
+    if [ ! -f /etc/postfix/main.cf ]; then
         safety_exec "cp /usr/share/postfix/main.cf.debian /etc/postfix/main.cf"
-    #fi
+    fi
     
     local postconf_edit_cmd="$(type -P postconf) -e"
     local postmap_cmd=$(type -P postmap)
@@ -413,7 +413,7 @@ function confiure_postfix() {
             debug_peer_list \
             smtpd_access_maps\""
 
-    safety_exec "$postconf_edit_cmd 'relay_domains=$FQDN'"
+    safety_exec "$postconf_edit_cmd 'relay_domains= \$mydomain, localhost, local, localhost.localdomain, $FQDN, $LDOMAIN'"
     safety_exec "$postconf_edit_cmd 'relay_recipient_maps=ldap:/etc/postfix/scalix_ldap_relay_recipient_maps.cf'"
     
     if [ ! -f "/etc/postfix/scalix_ldap_relay_recipient_maps.cf" ]; then
@@ -430,7 +430,11 @@ EOT
     fi
     safety_exec "$postconf_edit_cmd 'transport_maps = hash:/etc/postfix/transport'"
     if [ ! -f /etc/postfix/transport ]; then
-        echo "$FQDN smtp:$SMTPHOST:$SMTP_PORT" > /etc/postfix/transport
+        cat > /etc/postfix/transport <<EOT
+$FQDN smtp:$SMTPHOST:$SMTP_PORT
+$LDOMAIN smtp:$SMTPHOST:$SMTP_PORT
+
+EOT
         safety_exec "$postmap_cmd /etc/postfix/transport"
     fi
 
@@ -477,8 +481,8 @@ EOT
 
     fi
     
-    echo "We have configure saslauth for you \n"
-    echo "you may check it by exectuting following command\n"
+    echo "We have configure saslauth for you"
+    echo "you may check it by exectuting following command"
     echo "$ testsaslauthd -u sxadmin -p PSWD -f /var/spool/postfix/var/run/saslauthd/mux"
     service saslauthd restart
     echo
@@ -753,13 +757,13 @@ Y
   omaddpdl -l "ScalixUserAttributesAdmins/$MNODE"
   omaddpdl -l "ScalixGroupAdmins/$MNODE"
   omaddpdl -l "ScalixAdmins/$MNODE"
-  CONFIGURE_POSTFIX=true
+
   if $CONFIGURE_POSTFIX; then
     confiure_postfix "$ldappwd"
   fi
-  
+
   omon -s all
-  
+
   instance_dir="$(omcheckgc -d)"
 
   add_server_tweaks "$instance_dir/sys/general.cfg" "$UAL_SIGNON_TWEAK_HELP_TEXT" "${UAL_SIGNON_TWEAKS[@]}"
