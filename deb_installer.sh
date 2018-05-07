@@ -395,14 +395,21 @@ function confiure_postfix() {
         echo "Password for sxaquery admin is empty. Can not continue."
         exit 3
     fi
-    
+
     export SMTPHOST='localhost'
-    export SMTP_PORT=24
-    sxconfig --set -t smtpd.LISTEN=$SMTPHOST:$SMTP_PORT
+    export SMTP_PORT=20025
+    local smtpd_conf="$(/opt/scalix/bin/omcheckgc -d)/sys/smtpd.cfg"
+    if ! grep -q "^[[:blank:]]LISTEN=\|^LISTEN=" < $(head -n 150 "$smtpd_conf") ; then
+        sed "/EXTENSIONS=AUTH,DSN,8BITMIME/a LISTEN=$SMTPHOST:$SMTP_PORT" "$smtpd_conf"
+    else
+        local smtpd_line=$(/opt/scalix/bin/sxconfig --get -t smtpd.LISTEN | cut -d'=' -f2)
+        sed -i "s/${smtpd_line//smtpd./}/LISTEN=$SMTPHOST:$SMTP_PORT/g" $smtpd_conf
+    fi
+
     if [ ! -f /etc/postfix/main.cf ]; then
         safety_exec "cp /usr/share/postfix/main.cf.debian /etc/postfix/main.cf"
     fi
-    
+
     local postconf_edit_cmd="$(type -P postconf) -e"
     local postmap_cmd=$(type -P postmap)
     safety_exec "$postconf_edit_cmd 'compatibility_level = 2'"
@@ -415,7 +422,7 @@ function confiure_postfix() {
 
     safety_exec "$postconf_edit_cmd 'relay_domains= \$mydomain, localhost, local, localhost.localdomain, $FQDN, $LDOMAIN'"
     safety_exec "$postconf_edit_cmd 'relay_recipient_maps=ldap:/etc/postfix/scalix_ldap_relay_recipient_maps.cf'"
-    
+
     if [ ! -f "/etc/postfix/scalix_ldap_relay_recipient_maps.cf" ]; then
         cat > /etc/postfix/scalix_ldap_relay_recipient_maps.cf <<EOT
 server_host = ldap://localhost:389/
@@ -758,6 +765,13 @@ Y
   omaddpdl -l "ScalixGroupAdmins/$MNODE"
   omaddpdl -l "ScalixAdmins/$MNODE"
 
+  # if not running with sendmail get configured smtp port and host from smtpd.cfg
+  # because we need to set proper value into platform and swa properties
+  if [ $(lsof -i :25 | grep -c 'sendmail') -eq 0 ]; then
+        read SMTPHOST SMTP_PORT <<<  $(awk -F  ":" '{print $1 " " $2}' <<< `/opt/scalix/bin/sxconfig --get -t smtpd.LISTEN | cut -d'=' -f2` )
+  fi
+
+  CONFIGURE_POSTFIX=true
   if $CONFIGURE_POSTFIX; then
     confiure_postfix "$ldappwd"
   fi
@@ -820,6 +834,7 @@ for file in $files; do
       -e "s;%LOCALHOST%;$FQDN;g" \
       -e "s;swa.platform.enabled=false;swa.platform.enabled=true;g" \
       -e "s;swa.email.smtpServer=$FQDN;swa.email.smtpServer=$SMTPHOST:$SMTP_PORT;g" \
+      -e "s;swa.email.smtpServer=$FQDN:$SMTP_PORT;swa.email.smtpServer=$SMTPHOST:$SMTP_PORT;g" \
       -e "s;%PLATFORMURL%;$FQDN;g" \
       -e "s;ubermanager.notification.listener.address=\*;ubermanager.notification.listener.address=$EXTERNAL_IP;g" \
       -e "s;__SECURED_MODE__;false;g" \
