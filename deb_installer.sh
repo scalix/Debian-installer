@@ -396,14 +396,14 @@ function confiure_postfix() {
         exit 3
     fi
 
-    export SMTPHOST='localhost'
+    export SMTPHOST='127.0.0.1'
     export SMTP_PORT=20025
     local smtpd_conf="$(/opt/scalix/bin/omcheckgc -d)/sys/smtpd.cfg"
-    if ! grep -q "^[[:blank:]]LISTEN=\|^LISTEN=" < $(head -n 150 "$smtpd_conf") ; then
-        sed "/EXTENSIONS=AUTH,DSN,8BITMIME/a LISTEN=$SMTPHOST:$SMTP_PORT" "$smtpd_conf"
+    if ! grep -q "^[[:blank:]]LISTEN\|^LISTEN" <(sed '/\[SUBMIT\]/q' "$smtpd_conf") ; then
+        sed -i "/EXTENSIONS=AUTH,DSN,8BITMIME/a LISTEN=$SMTPHOST:$SMTP_PORT" "$smtpd_conf"
     else
-        local smtpd_line=$(/opt/scalix/bin/sxconfig --get -t smtpd.LISTEN | cut -d'=' -f2)
-        sed -i "s/${smtpd_line//smtpd./}/LISTEN=$SMTPHOST:$SMTP_PORT/g" $smtpd_conf
+        local smtpd_line=$(/opt/scalix/bin/sxconfig --get -t smtpd.LISTEN)
+        sed -i "s/${smtpd_line//smtpd./}/LISTEN=$SMTPHOST:$SMTP_PORT/g" "$smtpd_conf"
     fi
 
     if [ ! -f /etc/postfix/main.cf ]; then
@@ -771,7 +771,6 @@ Y
         read SMTPHOST SMTP_PORT <<<  $(awk -F  ":" '{print $1 " " $2}' <<< `/opt/scalix/bin/sxconfig --get -t smtpd.LISTEN | cut -d'=' -f2` )
   fi
 
-  CONFIGURE_POSTFIX=true
   if $CONFIGURE_POSTFIX; then
     confiure_postfix "$ldappwd"
   fi
@@ -834,7 +833,6 @@ for file in $files; do
       -e "s;%LOCALHOST%;$FQDN;g" \
       -e "s;swa.platform.enabled=false;swa.platform.enabled=true;g" \
       -e "s;swa.email.smtpServer=$FQDN;swa.email.smtpServer=$SMTPHOST:$SMTP_PORT;g" \
-      -e "s;swa.email.smtpServer=$FQDN:$SMTP_PORT;swa.email.smtpServer=$SMTPHOST:$SMTP_PORT;g" \
       -e "s;%PLATFORMURL%;$FQDN;g" \
       -e "s;ubermanager.notification.listener.address=\*;ubermanager.notification.listener.address=$EXTERNAL_IP;g" \
       -e "s;__SECURED_MODE__;false;g" \
