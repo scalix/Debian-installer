@@ -723,7 +723,7 @@ fi
 
 # check java version
 JAVA_VERSION=`$(type -P java) -version 2>&1 | awk -F '\"' '/version/ {print $2}'`
-if [[ ! "$JAVA_VERSION" =~ ^(1\.[8|9|10])|9(.*)|10(.*)$ ]];
+if [[ ! "$JAVA_VERSION" =~ ^(1\.[8|9|10|11])|9(.*)|10(.*)|11(.*)$ ]];
 then
     echo "It seems that you are using not supported JRE."
     echo "We determined that current JRE version is : '$JAVA_VERSION'"
