@@ -176,6 +176,21 @@ if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
     SERVER_ARCH="ubuntu$DIST_VERSION"
 fi
 
+function restart_service() {
+    local service_name=$1
+    local action=$2
+    if [[ -z "$2" ]]; then
+        action="restart"
+    fi
+    local systemd="$(type -p systemctl)"
+
+    if [ -n "$systemd" ]; then
+        $systemd $action $service_name
+    else
+        $(type -p service) $service_name $action
+    fi
+}
+
 function remove_scalix() {
 
     if [ -z "$INSTALLED_PACKAGES" ]; then
@@ -192,7 +207,7 @@ function remove_scalix() {
         rm -rf /opt/scalix
         rm -f /etc/apache2/**/scalix*.conf
         echo "Reload apache config"
-        service apache2 force-reload
+        restart_service apache2 force-reload
     fi
     echo "Done!"
     exit 0
@@ -310,7 +325,6 @@ function safety_exec() {
     fi
 }
 
-
 # add i386 architecture to system to be able to install i386 packages
 # Debian 7 and Ubunut 13.04
 function dpkg_add_i386_arch() {
@@ -406,6 +420,9 @@ function confiure_postfix() {
         sed -i "s/${smtpd_line//smtpd./}/LISTEN=$SMTPHOST:$SMTP_PORT/g" "$smtpd_conf"
     fi
 
+    /opt/scalix/bin/omoff -d 0 smtpd
+    /opt/scalix/bin/omon smtpd
+    
     if [ ! -f /etc/postfix/main.cf ]; then
         safety_exec "cp /usr/share/postfix/main.cf.debian /etc/postfix/main.cf"
     fi
@@ -465,11 +482,6 @@ EOT
     sed -i 's/MECHANISMS="pam"/MECHANISMS="ldap"/g' /etc/default/saslauthd
     sed -i 's;OPTIONS="-c -m /var/run/saslauthd";OPTIONS="-c -m /var/spool/postfix/var/run/saslauthd";g' /etc/default/saslauthd
 
-    #  we update the dpkg "state" of /var/spool/postfix/var/run/saslauthd.
-    # The saslauthd init script uses this setting to create the missing directory with the appropriate permissions and ownership:
-    dpkg-statoverride --force --update --add root sasl 755 /var/spool/postfix/var/run/saslauthd
-
-
     if [ ! -f /etc/saslauthd ]; then
         ln -s /etc/default/saslauthd /etc/saslauthd
     fi
@@ -491,7 +503,7 @@ EOT
     echo "We have configure saslauth for you"
     echo "you may check it by exectuting following command"
     echo "$ testsaslauthd -u sxadmin -p PSWD -f /var/spool/postfix/var/run/saslauthd/mux"
-    service saslauthd restart
+    restart_service saslauthd
     echo
 
 
@@ -523,6 +535,12 @@ EOT
             permit_sasl_authenticated \
             reject_unauth_destination\""
     
+    restart_service postfix
+     #  we update the dpkg "state" of /var/spool/postfix/var/run/saslauthd.
+    # The saslauthd init script uses this setting to create the missing directory with the appropriate permissions and ownership:
+    dpkg-statoverride --force --update --add root sasl 755 /var/spool/postfix/var/run/saslauthd
+
+
 }
 
 function use_https_for_webapp() {
@@ -900,12 +918,12 @@ if [ -f "$SX_WEB_CLIENT_CONF_PATH/$SX_WEB_CLIENT_CONF" ]; then
     fi
 fi
 
-service scalix-tomcat restart
+restart_service scalix-tomcat
 echo "Stoping apache server (belive me it's better to stop)"
-service apache2 stop
+restart_service apache2 stop
 sleep 1
 echo "Starting apache server"
-service apache2 start
+restart_service apache2 start
 
 SCALIX_PATH="export PATH=\$PATH:/opt/scalix/bin:/opt/scalix/diag:/opt/scalix-tomcat/bin:/opt/scalix-postgres/bin"
 echo $SCALIX_PATH > /etc/profile.d/scalixpathscript.sh
