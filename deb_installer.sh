@@ -506,7 +506,10 @@ EOT
     restart_service saslauthd
     echo
 
-
+    # set unlimited size for outgoing emails...
+    safety_exec "$postconf_edit_cmd \"message_size_limit=0\""
+    safety_exec "$postconf_edit_cmd \"mailbox_size_limit=0\""
+    
     safety_exec "$postconf_edit_cmd \"smtpd_client_restrictions = \
         permit_mynetworks \
         check_client_access hash:/etc/postfix/access \
