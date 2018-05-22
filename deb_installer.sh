@@ -543,7 +543,6 @@ EOT
     # The saslauthd init script uses this setting to create the missing directory with the appropriate permissions and ownership:
     dpkg-statoverride --force --update --add root sasl 755 /var/spool/postfix/var/run/saslauthd
 
-
 }
 
 function use_https_for_webapp() {
@@ -755,16 +754,12 @@ Y
     fi
   fi
 
-  for pkg_name in "libical chardet iconv"; do
-    optional_pkg = $(find_sx_package "$pkg_name" "$SERVER_ARCH")
+  for pkg_name in "libical" "chardet" "iconv"; do
+    optional_pkg=$(find_sx_package "$pkg_name" "$SERVER_ARCH")
     if [ -n "$optional_pkg" -a -f "$optional_pkg" ]; then
-        install_sx_package "installing $pkg_name" "$optional_pkg" "$SERVER_ARCH"
+        install_sx_package "installing $pkg_name" "$pkg_name" "$SERVER_ARCH"
     fi
   done
-
-  if [ -f $(find_sx_package "iconv" "$SERVER_ARCH") ]; then
-    install_sx_package "installing iconv" "iconv" "$SERVER_ARCH"
-  fi
 
   install_sx_package "Scalix server core" "server" "$SERVER_ARCH" "$DPKG_ARGS"
 
