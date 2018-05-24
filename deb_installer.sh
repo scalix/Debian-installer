@@ -177,7 +177,7 @@ if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
 fi
 
 if !$x86_64; then
-    echo "Unfortunately 32bit support was droped in Scalix 13 version. Please use install scalix to x64 OS."
+    echo "Unfortunately 32 bit support was dropped in Scalix 13 version. Please use  64 bit OS to install scalix."
     exit 1
 fi
 
