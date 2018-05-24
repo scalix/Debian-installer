@@ -176,6 +176,11 @@ if [[ $KERNEL_VERSION = *Ubuntu* ]]; then
     SERVER_ARCH="ubuntu$DIST_VERSION"
 fi
 
+if !$x86_64; then
+    echo "Unfortunately 32bit support was droped in Scalix 13 version. Please use install scalix to x64 OS."
+    exit 1
+fi
+
 function restart_service() {
     local service_name=$1
     local action=$2
@@ -325,20 +330,7 @@ function safety_exec() {
     fi
 }
 
-# add i386 architecture to system to be able to install i386 packages
-# Debian 7 and Ubunut 13.04
-function dpkg_add_i386_arch() {
-  local arch_file="/var/lib/dpkg/arch"
-  if [ -f "$arch_file" ]; then
-    local arch=$(grep i386 $arch_file)
-    if [ -z "$arch" ]; then
-      dpkg --add-architecture i386
-    fi
-  else
-    dpkg --add-architecture i386
-  fi
-  $APTITUDE_CMD update
-}
+
 
 # check if package exists in folder
 function find_sx_package () {
@@ -595,11 +587,7 @@ function collect_dependencies_from_package() {
             dependency=$(echo "$item" | awk '{ printf $1 }')
             if [[ $dependency != *scalix* ]]; then
                 if [[ $dependency == *\|* ]]; then
-                    if $x86_64; then
-                        dependency=$(echo "$dependency" | awk -F'|' '{ printf $2 }')
-                    else
-                        dependency=$(echo "$dependency" | awk -F'|' '{ printf $1 }')
-                    fi
+                    dependency=$(echo "$dependency" | awk -F'|' '{ printf $1 }')
                 fi
                 if [[ $DEPENDENCIES != *$dependency* ]]; then
                     DEPENDENCIES="$DEPENDENCIES $dependency"
@@ -642,7 +630,7 @@ function collect_dependencies() {
                 read -p "Do you want to install Sendmail and automatically configure it to work with scalix? ( yes / no ) ?" yn
                 case $yn in
                     [Yy]* )
-                        DEPENDENCIES="$DEPENDENCIES libmilter1.0.1:i386 sendmail:all sendmail-cf:all"
+                        DEPENDENCIES="$DEPENDENCIES libmilter1.0.1 sendmail:all sendmail-cf:all"
                         break
                     ;;
                     [Nn]* )
@@ -672,11 +660,9 @@ function collect_dependencies() {
     if [ -n "$sx_postgres" ]; then
       collect_dependencies_from_package "$sx_postgres"
     fi
-
-    if $x86_64; then
-        # debian
-        DEPENDENCIES=${DEPENDENCIES//mailutils:i386/mailutils}
-        DEPENDENCIES=${DEPENDENCIES//openssl:i386/openssl}
+    local sx_res=$(find_sx_package "res")
+    if [ -n "$sx_res" ]; then
+      collect_dependencies_from_package "$sx_res"
     fi
 
 }
@@ -697,9 +683,6 @@ function install_sx_package() {
 }
 
 check_package_dir "$PACKAGES_DIR"
-
-echo "Force add i386 architecture if needed"
-dpkg_add_i386_arch
 
 collect_dependencies "$PACKAGES_DIR"
 
