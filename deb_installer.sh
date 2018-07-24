@@ -412,6 +412,8 @@ function confiure_postfix() {
         sed -i "s/${smtpd_line//smtpd./}/LISTEN=$SMTPHOST:$SMTP_PORT/g" "$smtpd_conf"
     fi
 
+    # accept from localhost 
+    sed -i "s/#RELAY accept 127.0.0.1/RELAY accept 127.0.0.1/g" "$smtpd_conf"
     /opt/scalix/bin/omoff -d 0 smtpd
     /opt/scalix/bin/omon smtpd
     
